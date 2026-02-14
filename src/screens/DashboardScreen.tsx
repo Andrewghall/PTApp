@@ -88,6 +88,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
     <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: 100 }}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
@@ -277,9 +278,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  contentContainer: {
+    paddingBottom: 100,
+  },
   heroBanner: {
     width: '100%',
-    height: 160,
+    height: 100,
   },
   header: {
     flexDirection: 'row',

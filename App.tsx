@@ -140,7 +140,28 @@ export default function App() {
                 return <Ionicons name={iconName} size={size} color={color} />;
               },
               tabBarActiveTintColor: '#3b82f6',
-              tabBarInactiveTintColor: '#9ca3af',
+              tabBarInactiveTintColor: '#6b7280',
+              tabBarStyle: {
+                backgroundColor: '#ffffff',
+                borderTopColor: '#e5e7eb',
+                borderTopWidth: 1,
+                paddingBottom: 10,
+                paddingTop: 8,
+                height: 70,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: -2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 4,
+                elevation: 8,
+              },
+              tabBarLabelStyle: {
+                fontSize: 12,
+                fontWeight: '600',
+                marginBottom: 2,
+              },
+              tabBarIconStyle: {
+                marginTop: 4,
+              },
               headerShown: false,
             })}
           >
