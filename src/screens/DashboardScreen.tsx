@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,52 +6,96 @@ import {
   StyleSheet,
   ScrollView,
   SafeAreaView,
+  RefreshControl,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { db, supabase } from '../lib/supabase';
+import { format } from 'date-fns';
 
 interface DashboardScreenProps {
   navigation: any;
+  onLogout: () => void;
+  userId: string;
 }
 
-const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
-  // Mock data - will be replaced with real data in Phase 2
-  const mockData = {
-    creditsRemaining: 8,
-    nextSession: {
-      date: 'Tomorrow',
-      time: '10:00 AM',
-      location: 'Gym A',
-    },
-    quickStats: {
-      workoutsThisMonth: 12,
-      averageWeight: 75.5,
-      personalRecords: 3,
-    },
+const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout, userId }) => {
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [clientProfile, setClientProfile] = useState<any>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [nextBooking, setNextBooking] = useState<any>(null);
+  const [recentWorkouts, setRecentWorkouts] = useState<any[]>([]);
+  const [userName, setUserName] = useState('');
+
+  useEffect(() => {
+    loadDashboardData();
+  }, [userId]);
+
+  const loadDashboardData = async () => {
+    try {
+      // Get client profile
+      const { data: profile } = await db.getClientProfile(userId);
+      if (profile) {
+        setClientProfile(profile);
+        setUserName(`${profile.first_name} ${profile.last_name}`);
+
+        // Get credit balance
+        const { data: credits } = await db.getCreditBalance(profile.id);
+        setCreditBalance(credits?.balance || 0);
+
+        // Get next upcoming booking
+        const { data: bookings } = await db.getClientBookings(profile.id, 'booked');
+        if (bookings && bookings.length > 0) {
+          const upcoming = bookings
+            .filter((b: any) => b.slots && new Date(b.slots.start_time) > new Date())
+            .sort((a: any, b: any) => new Date(a.slots.start_time).getTime() - new Date(b.slots.start_time).getTime());
+          if (upcoming.length > 0) {
+            setNextBooking(upcoming[0]);
+          }
+        }
+
+        // Get recent workouts
+        const { data: workouts } = await db.getClientWorkouts(profile.id, 5);
+        setRecentWorkouts(workouts || []);
+      }
+    } catch (error) {
+      console.error('Error loading dashboard:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
-  const QuickActionCard: React.FC<{
-    icon: string;
-    title: string;
-    subtitle: string;
-    onPress: () => void;
-    color: string;
-  }> = ({ icon, title, subtitle, onPress, color }) => (
-    <TouchableOpacity style={styles.actionCard} onPress={onPress}>
-      <View style={[styles.iconContainer, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={24} color="white" />
+  const onRefresh = () => {
+    setRefreshing(true);
+    loadDashboardData();
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#3b82f6" />
       </View>
-      <Text style={styles.actionTitle}>{title}</Text>
-      <Text style={styles.actionSubtitle}>{subtitle}</Text>
-    </TouchableOpacity>
-  );
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scrollView}
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+      >
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.greeting}>Welcome back!</Text>
-          <Text style={styles.userName}>John Doe</Text>
+          <View>
+            <Text style={styles.greeting}>Welcome back!</Text>
+            <Text style={styles.userName}>{userName}</Text>
+          </View>
+          <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
+            <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+          </TouchableOpacity>
         </View>
 
         {/* Credits Card */}
@@ -60,121 +104,174 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
             <Ionicons name="wallet" size={24} color="#3b82f6" />
             <Text style={styles.creditsTitle}>Credits Remaining</Text>
           </View>
-          <Text style={styles.creditsAmount}>{mockData.creditsRemaining}</Text>
-          <TouchableOpacity style={styles.buyCreditsButton}>
+          <Text style={styles.creditsAmount}>{creditBalance}</Text>
+          <Text style={styles.creditsSubtext}>1 credit = 1 PT session</Text>
+          <TouchableOpacity
+            style={styles.buyCreditsButton}
+            onPress={() => navigation.navigate('Book')}
+          >
             <Text style={styles.buyCreditsText}>Buy More Credits</Text>
           </TouchableOpacity>
         </View>
 
         {/* Next Session */}
-        <View style={styles.sessionCard}>
-          <View style={styles.sessionHeader}>
-            <Ionicons name="calendar" size={24} color="#10b981" />
-            <Text style={styles.sessionTitle}>Next Session</Text>
+        {nextBooking ? (
+          <View style={styles.sessionCard}>
+            <View style={styles.sessionHeader}>
+              <Ionicons name="calendar" size={24} color="#10b981" />
+              <Text style={styles.sessionTitle}>Next Session</Text>
+            </View>
+            <Text style={styles.sessionDate}>
+              {format(new Date(nextBooking.slots.start_time), 'EEEE, MMMM d')}
+            </Text>
+            <Text style={styles.sessionTime}>
+              {format(new Date(nextBooking.slots.start_time), 'h:mm a')} -
+              {format(new Date(nextBooking.slots.end_time), 'h:mm a')}
+            </Text>
+            <Text style={styles.sessionLocation}>
+              {nextBooking.slots.location || 'Elevate Gym'}
+            </Text>
           </View>
-          <Text style={styles.sessionDate}>{mockData.nextSession.date}</Text>
-          <Text style={styles.sessionTime}>{mockData.nextSession.time}</Text>
-          <Text style={styles.sessionLocation}>{mockData.nextSession.location}</Text>
-          <TouchableOpacity style={styles.sessionButton}>
-            <Text style={styles.sessionButtonText}>View Details</Text>
-          </TouchableOpacity>
-        </View>
+        ) : (
+          <View style={styles.sessionCard}>
+            <View style={styles.sessionHeader}>
+              <Ionicons name="calendar-outline" size={24} color="#9ca3af" />
+              <Text style={styles.sessionTitle}>No Upcoming Sessions</Text>
+            </View>
+            <Text style={styles.sessionSubtext}>Book your next PT session</Text>
+            <TouchableOpacity
+              style={styles.sessionButton}
+              onPress={() => navigation.navigate('Book')}
+            >
+              <Text style={styles.sessionButtonText}>Book Now</Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Quick Actions */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-        </View>
-        
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
           <QuickActionCard
-            icon="calendar-outline"
+            icon="calendar"
             title="Book Session"
-            subtitle="Schedule next PT session"
-            onPress={() => navigation.navigate('Booking')}
+            subtitle="Schedule PT"
+            onPress={() => navigation.navigate('Book')}
             color="#3b82f6"
           />
-          
           <QuickActionCard
-            icon="fitness-outline"
-            title="Start Workout"
-            subtitle="Log today's exercises"
+            icon="barbell"
+            title="Log Workout"
+            subtitle="Track progress"
             onPress={() => navigation.navigate('Workout')}
             color="#10b981"
           />
-          
           <QuickActionCard
-            icon="stats-chart-outline"
+            icon="stats-chart"
             title="View Progress"
-            subtitle="Track your improvements"
+            subtitle="See analytics"
             onPress={() => navigation.navigate('Analytics')}
-            color="#f59e0b"
+            color="#8b5cf6"
           />
-          
           <QuickActionCard
-            icon="time-outline"
-            title="Cancel Session"
-            subtitle="Can't make it?"
-            onPress={() => navigation.navigate('Booking')}
-            color="#ef4444"
+            icon="person"
+            title="Profile"
+            subtitle="Edit details"
+            onPress={() => {}}
+            color="#f59e0b"
           />
         </View>
 
-        {/* Quick Stats */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>This Month</Text>
-        </View>
-        
-        <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{mockData.quickStats.workoutsThisMonth}</Text>
-            <Text style={styles.statLabel}>Workouts</Text>
+        {/* Recent Activity */}
+        <Text style={styles.sectionTitle}>Recent Workouts</Text>
+        {recentWorkouts.length > 0 ? (
+          <View style={styles.workoutsList}>
+            {recentWorkouts.slice(0, 3).map((workout, index) => (
+              <View key={workout.id} style={styles.workoutItem}>
+                <Ionicons name="barbell" size={20} color="#6b7280" />
+                <View style={styles.workoutDetails}>
+                  <Text style={styles.workoutDate}>
+                    {format(new Date(workout.date), 'MMM d, yyyy')}
+                  </Text>
+                  <Text style={styles.workoutExercises}>
+                    {workout.workout_exercises?.length || 0} exercises
+                  </Text>
+                </View>
+              </View>
+            ))}
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{mockData.quickStats.averageWeight}kg</Text>
-            <Text style={styles.statLabel}>Avg Weight</Text>
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="barbell-outline" size={48} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>No workouts yet</Text>
+            <Text style={styles.emptyStateSubtext}>Start logging your training</Text>
           </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNumber}>{mockData.quickStats.personalRecords}</Text>
-            <Text style={styles.statLabel}>New PRs</Text>
-          </View>
-        </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
 };
+
+const QuickActionCard: React.FC<{
+  icon: string;
+  title: string;
+  subtitle: string;
+  onPress: () => void;
+  color: string;
+}> = ({ icon, title, subtitle, onPress, color }) => (
+  <TouchableOpacity style={styles.actionCard} onPress={onPress}>
+    <View style={[styles.iconContainer, { backgroundColor: color }]}>
+      <Ionicons name={icon as any} size={24} color="white" />
+    </View>
+    <Text style={styles.actionTitle}>{title}</Text>
+    <Text style={styles.actionSubtitle}>{subtitle}</Text>
+  </TouchableOpacity>
+);
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+  },
   scrollView: {
     flex: 1,
-    padding: 16,
   },
   header: {
-    marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
   },
   greeting: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#6b7280',
-    marginBottom: 4,
   },
   userName: {
-    fontSize: 28,
+    fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
   },
+  logoutButton: {
+    padding: 8,
+  },
   creditsCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 16,
+    marginHorizontal: 20,
+    marginTop: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   creditsHeader: {
     flexDirection: 'row',
@@ -183,37 +280,41 @@ const styles = StyleSheet.create({
   },
   creditsTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#374151',
+    color: '#6b7280',
     marginLeft: 8,
   },
   creditsAmount: {
-    fontSize: 36,
+    fontSize: 48,
     fontWeight: 'bold',
     color: '#1f2937',
+  },
+  creditsSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
     marginBottom: 16,
   },
   buyCreditsButton: {
     backgroundColor: '#3b82f6',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     borderRadius: 8,
+    padding: 12,
     alignItems: 'center',
   },
   buyCreditsText: {
     color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
   sessionCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
-    marginBottom: 24,
+    marginHorizontal: 20,
+    marginTop: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sessionHeader: {
     flexDirection: 'row',
@@ -223,12 +324,12 @@ const styles = StyleSheet.create({
   sessionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: '#1f2937',
     marginLeft: 8,
   },
   sessionDate: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: '#1f2937',
     marginBottom: 4,
   },
@@ -239,46 +340,50 @@ const styles = StyleSheet.create({
   },
   sessionLocation: {
     fontSize: 14,
-    color: '#6b7280',
+    color: '#9ca3af',
+  },
+  sessionSubtext: {
+    fontSize: 14,
+    color: '#9ca3af',
     marginBottom: 12,
   },
   sessionButton: {
     backgroundColor: '#10b981',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
     borderRadius: 8,
+    padding: 12,
     alignItems: 'center',
+    marginTop: 8,
   },
   sessionButtonText: {
     color: 'white',
+    fontSize: 16,
     fontWeight: '600',
   },
-  sectionHeader: {
-    marginBottom: 12,
-  },
   sectionTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#1f2937',
+    paddingHorizontal: 20,
+    marginTop: 24,
+    marginBottom: 12,
   },
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+    paddingHorizontal: 10,
   },
   actionCard: {
-    width: '48%',
+    width: '47%',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    marginBottom: 12,
+    margin: 10,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   iconContainer: {
     width: 48,
@@ -286,47 +391,63 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 8,
   },
   actionTitle: {
     fontSize: 14,
     fontWeight: '600',
     color: '#1f2937',
     textAlign: 'center',
-    marginBottom: 4,
   },
   actionSubtitle: {
     fontSize: 12,
-    color: '#6b7280',
+    color: '#9ca3af',
     textAlign: 'center',
+    marginTop: 2,
   },
-  statsGrid: {
+  workoutsList: {
+    paddingHorizontal: 20,
+  },
+  workoutItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 20,
-  },
-  statCard: {
-    width: '31%',
+    alignItems: 'center',
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
-    alignItems: 'center',
+    marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  workoutDetails: {
+    marginLeft: 12,
+    flex: 1,
+  },
+  workoutDate: {
+    fontSize: 16,
+    fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 4,
   },
-  statLabel: {
-    fontSize: 12,
+  workoutExercises: {
+    fontSize: 14,
     color: '#6b7280',
-    textAlign: 'center',
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#9ca3af',
+    marginTop: 12,
+  },
+  emptyStateSubtext: {
+    fontSize: 14,
+    color: '#d1d5db',
+    marginTop: 4,
   },
 });
 
