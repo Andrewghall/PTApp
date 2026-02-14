@@ -757,39 +757,64 @@ const SessionsScreen = ({ onWorkout, onBuyCredits }: { onWorkout: (date: Date) =
   );
 };
 
-// Credits Purchase Screen
-const CreditsScreen = () => {
+// Credits Purchase Screen — real Supabase data
+const CreditsScreen = ({ clientProfileId, onRefresh }: { clientProfileId: string | null, onRefresh: () => Promise<void> }) => {
   const [loading, setLoading] = useState(false);
   const [showMBWayModal, setShowMBWayModal] = useState(false);
-  const [selectedPack, setSelectedPack] = useState<typeof creditPacks[0] | null>(null);
+  const [selectedPack, setSelectedPack] = useState<any>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
-  
-  const creditPacks = [
-    { id: 1, credits: 4, price: 100, bonus: 0, description: '4 Sessions - Minimum package' },
-    { id: 2, credits: 8, price: 200, bonus: 0, description: '8 Sessions - Popular choice' },
-    { id: 3, credits: 12, price: 300, bonus: 1, description: '12 Sessions + 1 FREE Session!' },
-    { id: 4, credits: 20, price: 500, bonus: 2, description: '20 Sessions + 2 FREE Sessions!' },
-  ];
+  const [creditPacks, setCreditPacks] = useState<any[]>([]);
 
-  const handlePurchase = (pack: typeof creditPacks[0]) => {
+  // Load credit packs from Supabase
+  useEffect(() => {
+    const loadPacks = async () => {
+      const { data } = await db.getCreditPacks();
+      if (data && data.length > 0) {
+        setCreditPacks(data.map((p: any) => ({
+          id: p.id,
+          credits: p.credits,
+          price: p.price / 100, // DB stores in cents
+          bonus: p.bonus_credits || 0,
+          description: p.name,
+        })));
+      } else {
+        // Fallback if DB has no packs
+        setCreditPacks([
+          { id: 'fallback-1', credits: 4, price: 100, bonus: 0, description: '4 Sessions' },
+          { id: 'fallback-2', credits: 8, price: 200, bonus: 0, description: '8 Sessions' },
+          { id: 'fallback-3', credits: 12, price: 300, bonus: 1, description: '12 Sessions + 1 FREE' },
+          { id: 'fallback-4', credits: 20, price: 500, bonus: 2, description: '20 Sessions + 2 FREE' },
+        ]);
+      }
+    };
+    loadPacks();
+  }, []);
+
+  const handlePurchase = (pack: any) => {
     setSelectedPack(pack);
     setShowMBWayModal(true);
   };
 
-  const processMBWayPayment = () => {
-    if (!phoneNumber || !selectedPack) return;
+  const processMBWayPayment = async () => {
+    if (!phoneNumber || !selectedPack || !clientProfileId) return;
     
     setLoading(true);
-    // Simulate MB Way payment processing
-    setTimeout(() => {
-      setLoading(false);
-      setShowMBWayModal(false);
-      setPhoneNumber('');
-      setSelectedPack(null);
-      setPaymentSuccess(`MB Way payment of €${selectedPack.price} completed! ${selectedPack.credits} credits added to your account.`);
-      setTimeout(() => setPaymentSuccess(null), 5000);
-    }, 3000);
+    // Record payment
+    await db.createPayment(clientProfileId, selectedPack.id, selectedPack.price * 100, 'mbway');
+    // Add credits to balance
+    const totalCredits = selectedPack.credits + selectedPack.bonus;
+    await db.addCredits(clientProfileId, totalCredits, `Purchased ${selectedPack.description}`);
+    // Refresh parent data
+    await onRefresh();
+    
+    setLoading(false);
+    setShowMBWayModal(false);
+    setPhoneNumber('');
+    const purchasedPack = selectedPack;
+    setSelectedPack(null);
+    setPaymentSuccess(`MB Way payment of €${purchasedPack.price} completed! ${totalCredits} credits added to your account.`);
+    setTimeout(() => setPaymentSuccess(null), 5000);
   };
 
   return (
@@ -2172,7 +2197,7 @@ export default function App() {
             <Text style={styles.appTitle}>Buy Credits</Text>
             <View style={styles.placeholder} />
           </View>
-          <CreditsScreen />
+          <CreditsScreen clientProfileId={clientProfileId} onRefresh={refreshData} />
         </View>
       </SafeAreaProvider>
     );
