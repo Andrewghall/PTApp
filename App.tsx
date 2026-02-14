@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, SafeAreaView, Image, Alert } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Path, Circle, Line, Text as SvgText, Rect } from 'react-native-svg';
 
 // Import the logo banner image
 const logoBanner = require('./logo banner.png');
@@ -1426,78 +1427,39 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
 
 // Analytics Screen
 const AnalyticsScreen = () => {
-  // Historical workout data (weeks of training)
-  const weeklyData = [
-    {
-      week: 'Dec 25 - Dec 31',
-      exercises: [
-        { name: 'Bench Press', weight: 65, sets: '3x8' },
-        { name: 'Squat', weight: 80, sets: '3x8' },
-        { name: 'Deadlift', weight: 100, sets: '3x5' },
-        { name: 'Overhead Press', weight: 40, sets: '3x8' },
-        { name: 'Box Squat', weight: 70, sets: '3x8' },
-      ]
-    },
-    {
-      week: 'Jan 1 - Jan 7',
-      exercises: [
-        { name: 'Bench Press', weight: 70, sets: '5x5' },
-        { name: 'Squat', weight: 85, sets: '5x5' },
-        { name: 'Deadlift', weight: 110, sets: '3x5' },
-        { name: 'Overhead Press', weight: 42.5, sets: '5x5' },
-        { name: 'Box Squat', weight: 75, sets: '5x5' },
-      ]
-    },
-    {
-      week: 'Jan 8 - Jan 14',
-      exercises: [
-        { name: 'Bench Press', weight: 72.5, sets: '5x5' },
-        { name: 'Squat', weight: 90, sets: '5x5' },
-        { name: 'Deadlift', weight: 120, sets: '3x3' },
-        { name: 'Overhead Press', weight: 45, sets: '5x5' },
-        { name: 'Box Squat', weight: 80, sets: '5x5' },
-      ]
-    },
-    {
-      week: 'Jan 15 - Jan 21',
-      exercises: [
-        { name: 'Bench Press', weight: 67.5, sets: '3x8' },
-        { name: 'Squat', weight: 82.5, sets: '3x8' },
-        { name: 'Deadlift', weight: 115, sets: '3x5' },
-        { name: 'Overhead Press', weight: 42.5, sets: '3x8' },
-        { name: 'Box Squat', weight: 72.5, sets: '3x8' },
-      ]
-    },
-    {
-      week: 'Jan 22 - Jan 28',
-      exercises: [
-        { name: 'Bench Press', weight: 70, sets: '3x8' },
-        { name: 'Squat', weight: 85, sets: '3x8' },
-        { name: 'Deadlift', weight: 125, sets: '3x3' },
-        { name: 'Overhead Press', weight: 50, sets: '5x5' },
-        { name: 'Box Squat', weight: 82.5, sets: '5x5' },
-      ]
-    },
-    {
-      week: 'Jan 29 - Feb 4',
-      exercises: [
-        { name: 'Bench Press', weight: 80, sets: '5x5' },
-        { name: 'Squat', weight: 100, sets: '5x5' },
-        { name: 'Deadlift', weight: 140, sets: '1x1' },
-        { name: 'Overhead Press', weight: 52.5, sets: '5x5' },
-        { name: 'Box Squat', weight: 90, sets: '5x5' },
-      ]
-    },
-    {
-      week: 'Feb 5 - Feb 11',
-      exercises: [
-        { name: 'Bench Press', weight: 82.5, sets: '5x5' },
-        { name: 'Squat', weight: 105, sets: '5x5' },
-        { name: 'Deadlift', weight: 130, sets: '3x3' },
-        { name: 'Overhead Press', weight: 55, sets: '5x5' },
-        { name: 'Box Squat', weight: 92.5, sets: '5x5' },
-      ]
-    },
+  const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | 'ALL'>('3M');
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+
+  // 8 months of weekly workout data (Aug 2025 - Feb 2026)
+  const allWeeklyData = [
+    { date: 'Aug 4', month: 8, exercises: { 'Bench Press': 55, 'Squat': 60, 'Deadlift': 80, 'Overhead Press': 30, 'Box Squat': 50 }},
+    { date: 'Aug 11', month: 8, exercises: { 'Bench Press': 57.5, 'Squat': 62.5, 'Deadlift': 85, 'Overhead Press': 30, 'Box Squat': 52.5 }},
+    { date: 'Aug 18', month: 8, exercises: { 'Bench Press': 55, 'Squat': 65, 'Deadlift': 82.5, 'Overhead Press': 32.5, 'Box Squat': 50 }},
+    { date: 'Aug 25', month: 8, exercises: { 'Bench Press': 60, 'Squat': 65, 'Deadlift': 90, 'Overhead Press': 32.5, 'Box Squat': 55 }},
+    { date: 'Sep 1', month: 9, exercises: { 'Bench Press': 60, 'Squat': 67.5, 'Deadlift': 90, 'Overhead Press': 35, 'Box Squat': 55 }},
+    { date: 'Sep 8', month: 9, exercises: { 'Bench Press': 62.5, 'Squat': 70, 'Deadlift': 95, 'Overhead Press': 35, 'Box Squat': 57.5 }},
+    { date: 'Sep 15', month: 9, exercises: { 'Bench Press': 60, 'Squat': 72.5, 'Deadlift': 92.5, 'Overhead Press': 37.5, 'Box Squat': 60 }},
+    { date: 'Sep 22', month: 9, exercises: { 'Bench Press': 65, 'Squat': 72.5, 'Deadlift': 100, 'Overhead Press': 37.5, 'Box Squat': 60 }},
+    { date: 'Sep 29', month: 9, exercises: { 'Bench Press': 65, 'Squat': 75, 'Deadlift': 100, 'Overhead Press': 40, 'Box Squat': 62.5 }},
+    { date: 'Oct 6', month: 10, exercises: { 'Bench Press': 67.5, 'Squat': 77.5, 'Deadlift': 105, 'Overhead Press': 40, 'Box Squat': 65 }},
+    { date: 'Oct 13', month: 10, exercises: { 'Bench Press': 65, 'Squat': 75, 'Deadlift': 100, 'Overhead Press': 37.5, 'Box Squat': 62.5 }},
+    { date: 'Oct 20', month: 10, exercises: { 'Bench Press': 67.5, 'Squat': 80, 'Deadlift': 107.5, 'Overhead Press': 40, 'Box Squat': 67.5 }},
+    { date: 'Oct 27', month: 10, exercises: { 'Bench Press': 70, 'Squat': 80, 'Deadlift': 110, 'Overhead Press': 42.5, 'Box Squat': 67.5 }},
+    { date: 'Nov 3', month: 11, exercises: { 'Bench Press': 70, 'Squat': 82.5, 'Deadlift': 110, 'Overhead Press': 42.5, 'Box Squat': 70 }},
+    { date: 'Nov 10', month: 11, exercises: { 'Bench Press': 72.5, 'Squat': 85, 'Deadlift': 115, 'Overhead Press': 45, 'Box Squat': 72.5 }},
+    { date: 'Nov 17', month: 11, exercises: { 'Bench Press': 72.5, 'Squat': 87.5, 'Deadlift': 112.5, 'Overhead Press': 45, 'Box Squat': 72.5 }},
+    { date: 'Nov 24', month: 11, exercises: { 'Bench Press': 75, 'Squat': 87.5, 'Deadlift': 120, 'Overhead Press': 47.5, 'Box Squat': 75 }},
+    { date: 'Dec 1', month: 12, exercises: { 'Bench Press': 72.5, 'Squat': 85, 'Deadlift': 115, 'Overhead Press': 45, 'Box Squat': 72.5 }},
+    { date: 'Dec 8', month: 12, exercises: { 'Bench Press': 75, 'Squat': 87.5, 'Deadlift': 120, 'Overhead Press': 47.5, 'Box Squat': 75 }},
+    { date: 'Dec 15', month: 12, exercises: { 'Bench Press': 75, 'Squat': 90, 'Deadlift': 122.5, 'Overhead Press': 47.5, 'Box Squat': 77.5 }},
+    { date: 'Dec 22', month: 12, exercises: { 'Bench Press': 65, 'Squat': 80, 'Deadlift': 100, 'Overhead Press': 40, 'Box Squat': 70 }},
+    { date: 'Dec 29', month: 12, exercises: { 'Bench Press': 67.5, 'Squat': 82.5, 'Deadlift': 105, 'Overhead Press': 42.5, 'Box Squat': 72.5 }},
+    { date: 'Jan 5', month: 1, exercises: { 'Bench Press': 72.5, 'Squat': 87.5, 'Deadlift': 115, 'Overhead Press': 45, 'Box Squat': 75 }},
+    { date: 'Jan 12', month: 1, exercises: { 'Bench Press': 75, 'Squat': 90, 'Deadlift': 120, 'Overhead Press': 47.5, 'Box Squat': 77.5 }},
+    { date: 'Jan 19', month: 1, exercises: { 'Bench Press': 77.5, 'Squat': 92.5, 'Deadlift': 125, 'Overhead Press': 50, 'Box Squat': 80 }},
+    { date: 'Jan 26', month: 1, exercises: { 'Bench Press': 77.5, 'Squat': 95, 'Deadlift': 127.5, 'Overhead Press': 50, 'Box Squat': 82.5 }},
+    { date: 'Feb 2', month: 2, exercises: { 'Bench Press': 80, 'Squat': 100, 'Deadlift': 140, 'Overhead Press': 52.5, 'Box Squat': 85 }},
+    { date: 'Feb 9', month: 2, exercises: { 'Bench Press': 82.5, 'Squat': 105, 'Deadlift': 130, 'Overhead Press': 55, 'Box Squat': 90 }},
   ];
 
   const exerciseNames = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Box Squat'];
@@ -1509,51 +1471,69 @@ const AnalyticsScreen = () => {
     'Box Squat': '#8b5cf6',
   };
 
-  // Calculate max weights per exercise
-  const maxWeights = exerciseNames.map(name => {
-    const allWeights = weeklyData.flatMap(w => 
-      w.exercises.filter(e => e.name === name).map(e => e.weight)
-    );
-    return {
-      name,
-      max: Math.max(...allWeights),
-      color: exerciseColors[name],
-    };
-  });
+  // Filter data by period
+  const getFilteredData = () => {
+    const total = allWeeklyData.length;
+    switch (selectedPeriod) {
+      case '1M': return allWeeklyData.slice(Math.max(0, total - 4));
+      case '3M': return allWeeklyData.slice(Math.max(0, total - 13));
+      case '6M': return allWeeklyData.slice(Math.max(0, total - 26));
+      case 'ALL': return allWeeklyData;
+    }
+  };
 
-  // Get the max weight across all exercises for chart scaling
-  const overallMax = Math.max(...maxWeights.map(m => m.max));
+  const filteredData = getFilteredData();
 
-  // Calculate weekly totals (sum of all exercise weights)
-  const weeklyTotals = weeklyData.map(w => ({
-    week: w.week.split(' - ')[0].replace('Jan ', 'J').replace('Feb ', 'F').replace('Dec ', 'D'),
-    total: w.exercises.reduce((sum, e) => sum + e.weight, 0),
+  // Get weights for an exercise from filtered data
+  const getWeights = (name: string) => filteredData.map(w => w.exercises[name as keyof typeof w.exercises] || 0);
+
+  // Calculate stats
+  const getExerciseStats = (name: string) => {
+    const weights = getWeights(name);
+    const current = weights[weights.length - 1];
+    const first = weights[0];
+    const max = Math.max(...weights);
+    const change = current - first;
+    const changePercent = first > 0 ? ((change / first) * 100).toFixed(1) : '0';
+    return { current, first, max, change, changePercent };
+  };
+
+  // Exercises to show on graph
+  const visibleExercises = selectedExercise ? [selectedExercise] : exerciseNames;
+
+  // Chart dimensions
+  const chartWidth = 340;
+  const chartHeight = 220;
+  const paddingLeft = 42;
+  const paddingRight = 10;
+  const paddingTop = 15;
+  const paddingBottom = 35;
+  const graphWidth = chartWidth - paddingLeft - paddingRight;
+  const graphHeight = chartHeight - paddingTop - paddingBottom;
+
+  // Find global min/max for visible exercises
+  const allVisibleWeights = visibleExercises.flatMap(name => getWeights(name));
+  const globalMin = Math.floor(Math.min(...allVisibleWeights) / 10) * 10;
+  const globalMax = Math.ceil(Math.max(...allVisibleWeights) / 10) * 10;
+  const range = globalMax - globalMin || 1;
+
+  const numPoints = filteredData.length;
+  const xStep = numPoints > 1 ? graphWidth / (numPoints - 1) : graphWidth;
+
+  // Y-axis labels (5 evenly spaced)
+  const yLabelCount = 5;
+  const yLabels = Array.from({ length: yLabelCount }, (_, i) => globalMin + (range * i) / (yLabelCount - 1));
+
+  // X-axis labels (show ~5-7 labels max)
+  const xLabelStep = Math.max(1, Math.floor(numPoints / 6));
+  const xLabels = filteredData.filter((_, i) => i % xLabelStep === 0 || i === numPoints - 1).map((d, i, arr) => ({
+    label: d.date,
+    index: filteredData.indexOf(d),
   }));
-  const maxTotal = Math.max(...weeklyTotals.map(w => w.total));
-
-  // Get weekly weights per exercise for trend chart
-  const getWeeklyWeights = (exerciseName: string) => {
-    return weeklyData.map(w => {
-      const ex = w.exercises.find(e => e.name === exerciseName);
-      return ex ? ex.weight : 0;
-    });
-  };
-
-  // Calculate week-over-week change
-  const getWeekChange = (exerciseName: string) => {
-    const weights = getWeeklyWeights(exerciseName);
-    if (weights.length < 2) return 0;
-    return weights[weights.length - 1] - weights[weights.length - 2];
-  };
 
   return (
     <View style={styles.workoutContainer}>
-      {/* Hero Banner */}
-      <Image 
-        source={logoBanner}
-        style={styles.dashboardHeroBanner}
-        resizeMode="cover"
-      />
+      <Image source={logoBanner} style={styles.dashboardHeroBanner} resizeMode="cover" />
       
       <ScrollView>
         <View style={styles.pageTitleSection}>
@@ -1561,121 +1541,202 @@ const AnalyticsScreen = () => {
           <Text style={styles.pageSubtitle}>Track your strength progress</Text>
         </View>
 
-        {/* Max Weights Section */}
-        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Personal Records (Max Weight)</Text>
-          {maxWeights.map((exercise) => (
-            <View key={exercise.name} style={{marginBottom: 16}}>
-              <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-                <Text style={{fontSize: 14, fontWeight: '600', color: '#374151'}}>{exercise.name}</Text>
-                <Text style={{fontSize: 14, fontWeight: 'bold', color: exercise.color}}>{exercise.max} kg</Text>
-              </View>
-              <View style={{height: 24, backgroundColor: '#f3f4f6', borderRadius: 12, overflow: 'hidden'}}>
-                <View style={{
-                  height: 24,
-                  width: `${(exercise.max / overallMax) * 100}%`,
-                  backgroundColor: exercise.color,
-                  borderRadius: 12,
-                  justifyContent: 'center',
-                  alignItems: 'flex-end',
-                  paddingRight: 8,
-                }}>
-                  <Text style={{fontSize: 11, fontWeight: 'bold', color: '#fff'}}>{exercise.max} kg</Text>
-                </View>
-              </View>
-            </View>
+        {/* Period Selector */}
+        <View style={{flexDirection: 'row', justifyContent: 'center', margin: 16, marginBottom: 0, gap: 8}}>
+          {(['1M', '3M', '6M', 'ALL'] as const).map((period) => (
+            <TouchableOpacity
+              key={period}
+              onPress={() => setSelectedPeriod(period)}
+              style={{
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 20,
+                backgroundColor: selectedPeriod === period ? '#1f2937' : '#f3f4f6',
+              }}
+            >
+              <Text style={{
+                fontSize: 13,
+                fontWeight: '600',
+                color: selectedPeriod === period ? '#fff' : '#6b7280',
+              }}>{period === 'ALL' ? 'All Time' : period}</Text>
+            </TouchableOpacity>
           ))}
         </View>
 
-        {/* Weekly Trend Per Exercise */}
-        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Weekly Lifting Trends</Text>
-          
-          {exerciseNames.map((exerciseName) => {
-            const weights = getWeeklyWeights(exerciseName);
-            const maxW = Math.max(...weights);
-            const minW = Math.min(...weights);
-            const change = getWeekChange(exerciseName);
-            const color = exerciseColors[exerciseName];
-            
-            return (
-              <View key={exerciseName} style={{marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 16}}>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: color, marginRight: 8}} />
-                    <Text style={{fontSize: 15, fontWeight: '600', color: '#1f2937'}}>{exerciseName}</Text>
-                  </View>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Text style={{fontSize: 15, fontWeight: 'bold', color: '#1f2937'}}>{weights[weights.length - 1]} kg</Text>
-                    <Text style={{fontSize: 12, fontWeight: '600', color: change >= 0 ? '#10b981' : '#ef4444', marginLeft: 8}}>
-                      {change >= 0 ? '+' : ''}{change} kg
-                    </Text>
-                  </View>
-                </View>
-                
-                {/* Mini bar chart for weekly weights */}
-                <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 3}}>
-                  {weights.map((w, i) => (
-                    <View key={i} style={{flex: 1, alignItems: 'center'}}>
-                      <Text style={{fontSize: 8, color: '#9ca3af', marginBottom: 2}}>{w}</Text>
-                      <View style={{
-                        width: '80%',
-                        height: Math.max(4, (w / maxW) * 36),
-                        backgroundColor: i === weights.length - 1 ? color : `${color}80`,
-                        borderRadius: 3,
-                      }} />
-                    </View>
-                  ))}
-                </View>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 4}}>
-                  <Text style={{fontSize: 9, color: '#9ca3af'}}>W1</Text>
-                  <Text style={{fontSize: 9, color: '#9ca3af'}}>W{weights.length}</Text>
-                </View>
-              </View>
-            );
-          })}
-        </View>
+        {/* Main Line Graph */}
+        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
+          <Text style={{fontSize: 16, fontWeight: 'bold', color: '#1f2937', marginBottom: 2}}>
+            {selectedExercise || 'All Exercises'} - Weight (kg)
+          </Text>
+          <Text style={{fontSize: 11, color: '#9ca3af', marginBottom: 12}}>
+            {filteredData[0]?.date} - {filteredData[filteredData.length - 1]?.date} ({filteredData.length} weeks)
+          </Text>
 
-        {/* Weekly Volume Chart */}
-        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Total Weekly Volume</Text>
-          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 4}}>
-            {weeklyTotals.map((w, i) => (
-              <View key={i} style={{flex: 1, alignItems: 'center'}}>
-                <Text style={{fontSize: 9, color: '#6b7280', marginBottom: 4}}>{w.total}</Text>
-                <View style={{
-                  width: '70%',
-                  height: Math.max(8, (w.total / maxTotal) * 90),
-                  backgroundColor: i === weeklyTotals.length - 1 ? '#3b82f6' : '#93c5fd',
-                  borderRadius: 4,
-                }} />
-                <Text style={{fontSize: 8, color: '#9ca3af', marginTop: 4}}>{w.week}</Text>
-              </View>
+          <Svg width={chartWidth} height={chartHeight}>
+            {/* Grid lines */}
+            {yLabels.map((val, i) => {
+              const y = paddingTop + graphHeight - ((val - globalMin) / range) * graphHeight;
+              return (
+                <React.Fragment key={`grid-${i}`}>
+                  <Line x1={paddingLeft} y1={y} x2={chartWidth - paddingRight} y2={y} stroke="#f3f4f6" strokeWidth={1} />
+                  <SvgText x={paddingLeft - 5} y={y + 4} fontSize={9} fill="#9ca3af" textAnchor="end">
+                    {Math.round(val)}
+                  </SvgText>
+                </React.Fragment>
+              );
+            })}
+
+            {/* X-axis labels */}
+            {xLabels.map(({ label, index }) => {
+              const x = paddingLeft + index * xStep;
+              return (
+                <SvgText key={`x-${index}`} x={x} y={chartHeight - 5} fontSize={8} fill="#9ca3af" textAnchor="middle">
+                  {label}
+                </SvgText>
+              );
+            })}
+
+            {/* Lines for each visible exercise */}
+            {visibleExercises.map((exerciseName) => {
+              const weights = getWeights(exerciseName);
+              const color = exerciseColors[exerciseName];
+
+              const points = weights.map((w, i) => ({
+                x: paddingLeft + i * xStep,
+                y: paddingTop + graphHeight - ((w - globalMin) / range) * graphHeight,
+              }));
+
+              const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+              return (
+                <React.Fragment key={exerciseName}>
+                  <Path d={pathD} stroke={color} strokeWidth={selectedExercise ? 3 : 2} fill="none" />
+                  {/* Show dots only if few data points or single exercise */}
+                  {(numPoints <= 13 || selectedExercise) && points.map((p, i) => (
+                    <Circle key={`d-${exerciseName}-${i}`} cx={p.x} cy={p.y} r={i === points.length - 1 ? 4 : 2} fill={color} />
+                  ))}
+                  {/* Always show last dot */}
+                  {numPoints > 13 && !selectedExercise && (
+                    <Circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r={3.5} fill={color} />
+                  )}
+                </React.Fragment>
+              );
+            })}
+          </Svg>
+
+          {/* Legend - tap to filter */}
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', marginTop: 12, gap: 8}}>
+            <TouchableOpacity
+              onPress={() => setSelectedExercise(null)}
+              style={{
+                flexDirection: 'row', alignItems: 'center',
+                paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12,
+                backgroundColor: !selectedExercise ? '#1f2937' : '#f9fafb',
+              }}
+            >
+              <Text style={{fontSize: 11, fontWeight: '600', color: !selectedExercise ? '#fff' : '#6b7280'}}>All</Text>
+            </TouchableOpacity>
+            {exerciseNames.map((name) => (
+              <TouchableOpacity
+                key={name}
+                onPress={() => setSelectedExercise(selectedExercise === name ? null : name)}
+                style={{
+                  flexDirection: 'row', alignItems: 'center',
+                  paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12,
+                  backgroundColor: selectedExercise === name ? exerciseColors[name] + '20' : '#f9fafb',
+                  borderWidth: selectedExercise === name ? 1.5 : 0,
+                  borderColor: exerciseColors[name],
+                }}
+              >
+                <View style={{width: 8, height: 8, borderRadius: 4, backgroundColor: exerciseColors[name], marginRight: 4}} />
+                <Text style={{fontSize: 11, color: '#374151'}}>{name}</Text>
+              </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Summary Stats */}
+        {/* Exercise Cards with Sparklines */}
+        <View style={{margin: 16, marginTop: 0}}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 12}}>Exercise Breakdown</Text>
+          
+          {exerciseNames.map((exerciseName) => {
+            const stats = getExerciseStats(exerciseName);
+            const weights = getWeights(exerciseName);
+            const color = exerciseColors[exerciseName];
+            const maxW = Math.max(...weights);
+            const minW = Math.min(...weights);
+            const sparkW = 120;
+            const sparkH = 40;
+            const sparkRange = maxW - minW || 1;
+            const sparkXStep = weights.length > 1 ? sparkW / (weights.length - 1) : sparkW;
+
+            const sparkPoints = weights.map((w, i) => ({
+              x: i * sparkXStep,
+              y: sparkH - 4 - ((w - minW) / sparkRange) * (sparkH - 8),
+            }));
+            const sparkPath = sparkPoints.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ');
+
+            return (
+              <TouchableOpacity
+                key={exerciseName}
+                onPress={() => setSelectedExercise(selectedExercise === exerciseName ? null : exerciseName)}
+                style={{
+                  backgroundColor: '#fff', borderRadius: 12, padding: 14, marginBottom: 10,
+                  shadowColor: '#000', shadowOffset: {width: 0, height: 1}, shadowOpacity: 0.05, shadowRadius: 3, elevation: 2,
+                  borderLeftWidth: 4, borderLeftColor: color,
+                }}
+              >
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <View style={{flex: 1}}>
+                    <Text style={{fontSize: 14, fontWeight: '600', color: '#1f2937', marginBottom: 2}}>{exerciseName}</Text>
+                    <View style={{flexDirection: 'row', alignItems: 'baseline', gap: 8}}>
+                      <Text style={{fontSize: 22, fontWeight: 'bold', color: '#1f2937'}}>{stats.current} kg</Text>
+                      <Text style={{fontSize: 12, fontWeight: '600', color: stats.change >= 0 ? '#10b981' : '#ef4444'}}>
+                        {stats.change >= 0 ? '+' : ''}{stats.change} kg ({stats.changePercent}%)
+                      </Text>
+                    </View>
+                    <Text style={{fontSize: 11, color: '#9ca3af', marginTop: 2}}>PR: {stats.max} kg</Text>
+                  </View>
+                  <Svg width={sparkW} height={sparkH}>
+                    <Path d={sparkPath} stroke={color} strokeWidth={2} fill="none" />
+                    <Circle cx={sparkPoints[sparkPoints.length - 1].x} cy={sparkPoints[sparkPoints.length - 1].y} r={3} fill={color} />
+                  </Svg>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Personal Records */}
         <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, marginBottom: 32, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Progress Summary</Text>
-          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
-            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, alignItems: 'center'}}>
-              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#3b82f6'}}>7</Text>
-              <Text style={{fontSize: 12, color: '#6b7280'}}>Weeks Tracked</Text>
-            </View>
-            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#f0fdf4', borderRadius: 10, padding: 12, alignItems: 'center'}}>
-              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#10b981'}}>140 kg</Text>
-              <Text style={{fontSize: 12, color: '#6b7280'}}>Heaviest Lift</Text>
-            </View>
-            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#fef3c7', borderRadius: 10, padding: 12, alignItems: 'center'}}>
-              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#f59e0b'}}>+17.5 kg</Text>
-              <Text style={{fontSize: 12, color: '#6b7280'}}>Bench Progress</Text>
-            </View>
-            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#fce7f3', borderRadius: 10, padding: 12, alignItems: 'center'}}>
-              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#ec4899'}}>+25 kg</Text>
-              <Text style={{fontSize: 12, color: '#6b7280'}}>Squat Progress</Text>
-            </View>
-          </View>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Personal Records</Text>
+          {exerciseNames.map((name) => {
+            const allWeights = allWeeklyData.map(w => w.exercises[name as keyof typeof w.exercises] || 0);
+            const max = Math.max(...allWeights);
+            const overallMax = Math.max(...exerciseNames.map(n => Math.max(...allWeeklyData.map(w => w.exercises[n as keyof typeof w.exercises] || 0))));
+            const color = exerciseColors[name];
+            return (
+              <View key={name} style={{marginBottom: 12}}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
+                  <Text style={{fontSize: 13, fontWeight: '600', color: '#374151'}}>{name}</Text>
+                  <Text style={{fontSize: 13, fontWeight: 'bold', color}}>{max} kg</Text>
+                </View>
+                <View style={{height: 20, backgroundColor: '#f3f4f6', borderRadius: 10, overflow: 'hidden'}}>
+                  <View style={{
+                    height: 20,
+                    width: `${(max / overallMax) * 100}%`,
+                    backgroundColor: color,
+                    borderRadius: 10,
+                    justifyContent: 'center',
+                    alignItems: 'flex-end',
+                    paddingRight: 6,
+                  }}>
+                    <Text style={{fontSize: 10, fontWeight: 'bold', color: '#fff'}}>{max} kg</Text>
+                  </View>
+                </View>
+              </View>
+            );
+          })}
         </View>
       </ScrollView>
     </View>
