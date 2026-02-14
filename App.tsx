@@ -1706,38 +1706,6 @@ const AnalyticsScreen = () => {
             );
           })}
         </View>
-
-        {/* Personal Records */}
-        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, marginBottom: 32, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
-          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Personal Records</Text>
-          {exerciseNames.map((name) => {
-            const allWeights = allWeeklyData.map(w => w.exercises[name as keyof typeof w.exercises] || 0);
-            const max = Math.max(...allWeights);
-            const overallMax = Math.max(...exerciseNames.map(n => Math.max(...allWeeklyData.map(w => w.exercises[n as keyof typeof w.exercises] || 0))));
-            const color = exerciseColors[name];
-            return (
-              <View key={name} style={{marginBottom: 12}}>
-                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
-                  <Text style={{fontSize: 13, fontWeight: '600', color: '#374151'}}>{name}</Text>
-                  <Text style={{fontSize: 13, fontWeight: 'bold', color}}>{max} kg</Text>
-                </View>
-                <View style={{height: 20, backgroundColor: '#f3f4f6', borderRadius: 10, overflow: 'hidden'}}>
-                  <View style={{
-                    height: 20,
-                    width: `${(max / overallMax) * 100}%`,
-                    backgroundColor: color,
-                    borderRadius: 10,
-                    justifyContent: 'center',
-                    alignItems: 'flex-end',
-                    paddingRight: 6,
-                  }}>
-                    <Text style={{fontSize: 10, fontWeight: 'bold', color: '#fff'}}>{max} kg</Text>
-                  </View>
-                </View>
-              </View>
-            );
-          })}
-        </View>
       </ScrollView>
     </View>
   );
