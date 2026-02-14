@@ -9,10 +9,14 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, supabase, auth } from '../lib/supabase';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+
+// Import the logo banner image
+const logoBanner = require('../../logo banner.png');
 
 const BookingScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -150,6 +154,9 @@ const BookingScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hero Banner */}
+      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Book a Session</Text>
@@ -333,6 +340,10 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  heroBanner: {
+    width: '100%',
+    height: 160,
   },
   loadingContainer: {
     flex: 1,

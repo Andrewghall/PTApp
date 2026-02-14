@@ -8,10 +8,14 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Dimensions,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
 import { format, subMonths, subWeeks, subYears } from 'date-fns';
+
+// Import the logo banner image
+const logoBanner = require('../../logo banner.png');
 
 type TimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
 
@@ -147,6 +151,9 @@ const AnalyticsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hero Banner */}
+      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Progress & Analytics</Text>
@@ -318,6 +325,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
+  },
+  heroBanner: {
+    width: '100%',
+    height: 160,
   },
   scrollView: {
     flex: 1,

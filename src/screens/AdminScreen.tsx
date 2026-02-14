@@ -10,10 +10,14 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, db } from '../lib/supabase';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
+
+// Import the logo banner image
+const logoBanner = require('../../logo banner.png');
 
 const AdminScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
@@ -181,6 +185,9 @@ const AdminScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Hero Banner */}
+      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Admin Portal</Text>
@@ -384,6 +391,10 @@ const styles = StyleSheet.create({
   tabTextActive: {
     color: '#3b82f6',
     fontWeight: '600',
+  },
+  heroBanner: {
+    width: '100%',
+    height: 160,
   },
   scrollView: {
     flex: 1,
