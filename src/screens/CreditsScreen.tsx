@@ -55,8 +55,8 @@ const CreditsScreen: React.FC = () => {
     if (!clientId) return;
 
     Alert.alert(
-      'Purchase Credits',
-      `Buy ${pack.credits} credits for £${pack.price}?`,
+      'Purchase Sessions',
+      `Buy ${pack.credits} sessions for £${pack.price}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -69,10 +69,10 @@ const CreditsScreen: React.FC = () => {
               await db.addCredits(
                 clientId,
                 pack.credits,
-                `Purchased ${pack.credits} credit pack for £${pack.price}`
+                `Purchased ${pack.credits} session pack for £${pack.price}`
               );
 
-              Alert.alert('Success!', `${pack.credits} credits added to your account!`);
+              Alert.alert('Success!', `${pack.credits} sessions added to your account!`);
               loadData(); // Refresh balance
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Purchase failed');
@@ -101,8 +101,8 @@ const CreditsScreen: React.FC = () => {
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Buy Credits</Text>
-          <Text style={styles.headerSubtitle}>Choose your credit package</Text>
+          <Text style={styles.headerTitle}>Buy Sessions</Text>
+          <Text style={styles.headerSubtitle}>Choose your package</Text>
         </View>
 
         {/* Current Balance */}
@@ -110,13 +110,13 @@ const CreditsScreen: React.FC = () => {
           <Ionicons name="wallet" size={32} color="#3b82f6" />
           <View style={styles.balanceInfo}>
             <Text style={styles.balanceLabel}>Current Balance</Text>
-            <Text style={styles.balanceAmount}>{currentBalance} credits</Text>
+            <Text style={styles.balanceAmount}>{currentBalance} sessions</Text>
           </View>
         </View>
 
         {/* Credit Packs */}
         <View style={styles.packsSection}>
-          <Text style={styles.sectionTitle}>Credit Packages</Text>
+          <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
             const pricePerCredit = (pack.price / pack.credits).toFixed(2);
@@ -137,7 +137,7 @@ const CreditsScreen: React.FC = () => {
 
                 <View style={styles.packContent}>
                   <View style={styles.packInfo}>
-                    <Text style={styles.packCredits}>{pack.credits} Credits</Text>
+                    <Text style={styles.packCredits}>{pack.credits} Sessions</Text>
                     <Text style={styles.packDescription}>
                       £{pricePerCredit} per session
                     </Text>
@@ -181,11 +181,11 @@ const CreditsScreen: React.FC = () => {
           <View style={styles.infoCard}>
             <Ionicons name="information-circle" size={24} color="#3b82f6" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoTitle}>How Credits Work</Text>
+              <Text style={styles.infoTitle}>How It Works</Text>
               <Text style={styles.infoText}>
-                • 1 credit = 1 PT session{'\n'}
-                • Credits never expire{'\n'}
-                • Book sessions anytime{'\n'}
+                • 1 session = £25{'\n'}
+                • Sessions never expire{'\n'}
+                • Book anytime{'\n'}
                 • Full refund if cancelled in advance
               </Text>
             </View>

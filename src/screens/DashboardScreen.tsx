@@ -109,15 +109,15 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         <View style={styles.creditsCard}>
           <View style={styles.creditsHeader}>
             <Ionicons name="wallet" size={24} color="#3b82f6" />
-            <Text style={styles.creditsTitle}>Credits Remaining</Text>
+            <Text style={styles.creditsTitle}>Sessions Remaining</Text>
           </View>
           <Text style={styles.creditsAmount}>{creditBalance}</Text>
-          <Text style={styles.creditsSubtext}>1 credit = 1 PT session</Text>
+          <Text style={styles.creditsSubtext}>Prepaid PT sessions</Text>
           <TouchableOpacity
             style={styles.buyCreditsButton}
             onPress={() => navigation.navigate('Credits')}
           >
-            <Text style={styles.buyCreditsText}>Buy More Credits</Text>
+            <Text style={styles.buyCreditsText}>Buy More Sessions</Text>
           </TouchableOpacity>
         </View>
 

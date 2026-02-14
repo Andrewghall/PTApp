@@ -70,7 +70,7 @@ const BookingScreen: React.FC = () => {
     if (!clientId || !selectedSlot) return;
 
     if (creditBalance < 1) {
-      Alert.alert('Insufficient Credits', 'You need at least 1 credit to book a session.');
+      Alert.alert('No Sessions Available', 'You need to purchase sessions before booking.');
       return;
     }
 
@@ -162,7 +162,7 @@ const BookingScreen: React.FC = () => {
         <Text style={styles.headerTitle}>Book a Session</Text>
         <View style={styles.creditsHeader}>
           <Ionicons name="wallet" size={20} color="#3b82f6" />
-          <Text style={styles.creditsText}>{creditBalance} credits</Text>
+          <Text style={styles.creditsText}>{creditBalance} sessions</Text>
         </View>
       </View>
 
@@ -304,7 +304,7 @@ const BookingScreen: React.FC = () => {
                 <Text style={styles.modalSubtext}>
                   {selectedSlot.location || 'Elevate Gym'}
                 </Text>
-                <Text style={styles.modalCost}>Cost: 1 credit</Text>
+                <Text style={styles.modalCost}>Cost: 1 session</Text>
               </>
             )}
             <View style={styles.modalButtons}>
