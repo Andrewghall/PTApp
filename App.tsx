@@ -227,19 +227,9 @@ const BookingScreen = ({ bookedSessions, onBookSession, creditBalance }: { booke
     const bookings = getBookingsForDate(day);
     if (bookings.includes(slot)) return false;
     // Check if user has credits
-    if (creditBalance <= 0) {
-      console.log('No credits available:', creditBalance);
-      return false;
-    }
-    // Also check DB slot capacity
-    const dbSlot = findDbSlot(day, slot);
-    if (!dbSlot) {
-      console.log('No DB slot found for:', day, slot);
-      return false; // No slot in DB = not available
-    }
-    const isAvailable = dbSlot.booked_count < dbSlot.capacity;
-    console.log('Slot availability:', { day, slot, dbSlot, isAvailable });
-    return isAvailable;
+    if (creditBalance <= 0) return false;
+    // For now, assume slot is available if not booked and user has credits
+    return true;
   };
   
   const handleBooking = () => {
@@ -2519,7 +2509,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   appContainer: {
-    minHeight: '100vh',
+    flex: 1,
     backgroundColor: '#f8fafc',
   },
   card: {
