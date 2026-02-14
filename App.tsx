@@ -1357,13 +1357,14 @@ const ProfileScreen = ({ userProfile, onBack }: {
 };
 
 // Simple Dashboard Screen
-const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile }: { 
+const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile, onAnalytics }: { 
   onBuyCredits: () => void, 
   onBookSession: () => void,
   onViewSessions: () => void,
   onLogout: () => void,
   onWorkout: () => void,
-  onProfile: () => void
+  onProfile: () => void,
+  onAnalytics: () => void
 }) => {
   return (
     <View style={styles.dashboardContainer}>
@@ -1413,15 +1414,277 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
             <Text style={styles.actionIcon}>👤</Text>
             <Text style={styles.actionText}>Profile</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.actionCard} onPress={onAnalytics}>
+            <Text style={styles.actionIcon}>📊</Text>
+            <Text style={styles.actionText}>Analytics</Text>
+          </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 };
 
+// Analytics Screen
+const AnalyticsScreen = () => {
+  // Historical workout data (weeks of training)
+  const weeklyData = [
+    {
+      week: 'Dec 25 - Dec 31',
+      exercises: [
+        { name: 'Bench Press', weight: 65, sets: '3x8' },
+        { name: 'Squat', weight: 80, sets: '3x8' },
+        { name: 'Deadlift', weight: 100, sets: '3x5' },
+        { name: 'Overhead Press', weight: 40, sets: '3x8' },
+        { name: 'Box Squat', weight: 70, sets: '3x8' },
+      ]
+    },
+    {
+      week: 'Jan 1 - Jan 7',
+      exercises: [
+        { name: 'Bench Press', weight: 70, sets: '5x5' },
+        { name: 'Squat', weight: 85, sets: '5x5' },
+        { name: 'Deadlift', weight: 110, sets: '3x5' },
+        { name: 'Overhead Press', weight: 42.5, sets: '5x5' },
+        { name: 'Box Squat', weight: 75, sets: '5x5' },
+      ]
+    },
+    {
+      week: 'Jan 8 - Jan 14',
+      exercises: [
+        { name: 'Bench Press', weight: 72.5, sets: '5x5' },
+        { name: 'Squat', weight: 90, sets: '5x5' },
+        { name: 'Deadlift', weight: 120, sets: '3x3' },
+        { name: 'Overhead Press', weight: 45, sets: '5x5' },
+        { name: 'Box Squat', weight: 80, sets: '5x5' },
+      ]
+    },
+    {
+      week: 'Jan 15 - Jan 21',
+      exercises: [
+        { name: 'Bench Press', weight: 67.5, sets: '3x8' },
+        { name: 'Squat', weight: 82.5, sets: '3x8' },
+        { name: 'Deadlift', weight: 115, sets: '3x5' },
+        { name: 'Overhead Press', weight: 42.5, sets: '3x8' },
+        { name: 'Box Squat', weight: 72.5, sets: '3x8' },
+      ]
+    },
+    {
+      week: 'Jan 22 - Jan 28',
+      exercises: [
+        { name: 'Bench Press', weight: 70, sets: '3x8' },
+        { name: 'Squat', weight: 85, sets: '3x8' },
+        { name: 'Deadlift', weight: 125, sets: '3x3' },
+        { name: 'Overhead Press', weight: 50, sets: '5x5' },
+        { name: 'Box Squat', weight: 82.5, sets: '5x5' },
+      ]
+    },
+    {
+      week: 'Jan 29 - Feb 4',
+      exercises: [
+        { name: 'Bench Press', weight: 80, sets: '5x5' },
+        { name: 'Squat', weight: 100, sets: '5x5' },
+        { name: 'Deadlift', weight: 140, sets: '1x1' },
+        { name: 'Overhead Press', weight: 52.5, sets: '5x5' },
+        { name: 'Box Squat', weight: 90, sets: '5x5' },
+      ]
+    },
+    {
+      week: 'Feb 5 - Feb 11',
+      exercises: [
+        { name: 'Bench Press', weight: 82.5, sets: '5x5' },
+        { name: 'Squat', weight: 105, sets: '5x5' },
+        { name: 'Deadlift', weight: 130, sets: '3x3' },
+        { name: 'Overhead Press', weight: 55, sets: '5x5' },
+        { name: 'Box Squat', weight: 92.5, sets: '5x5' },
+      ]
+    },
+  ];
+
+  const exerciseNames = ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press', 'Box Squat'];
+  const exerciseColors: Record<string, string> = {
+    'Bench Press': '#3b82f6',
+    'Squat': '#10b981',
+    'Deadlift': '#ef4444',
+    'Overhead Press': '#f59e0b',
+    'Box Squat': '#8b5cf6',
+  };
+
+  // Calculate max weights per exercise
+  const maxWeights = exerciseNames.map(name => {
+    const allWeights = weeklyData.flatMap(w => 
+      w.exercises.filter(e => e.name === name).map(e => e.weight)
+    );
+    return {
+      name,
+      max: Math.max(...allWeights),
+      color: exerciseColors[name],
+    };
+  });
+
+  // Get the max weight across all exercises for chart scaling
+  const overallMax = Math.max(...maxWeights.map(m => m.max));
+
+  // Calculate weekly totals (sum of all exercise weights)
+  const weeklyTotals = weeklyData.map(w => ({
+    week: w.week.split(' - ')[0].replace('Jan ', 'J').replace('Feb ', 'F').replace('Dec ', 'D'),
+    total: w.exercises.reduce((sum, e) => sum + e.weight, 0),
+  }));
+  const maxTotal = Math.max(...weeklyTotals.map(w => w.total));
+
+  // Get weekly weights per exercise for trend chart
+  const getWeeklyWeights = (exerciseName: string) => {
+    return weeklyData.map(w => {
+      const ex = w.exercises.find(e => e.name === exerciseName);
+      return ex ? ex.weight : 0;
+    });
+  };
+
+  // Calculate week-over-week change
+  const getWeekChange = (exerciseName: string) => {
+    const weights = getWeeklyWeights(exerciseName);
+    if (weights.length < 2) return 0;
+    return weights[weights.length - 1] - weights[weights.length - 2];
+  };
+
+  return (
+    <View style={styles.workoutContainer}>
+      {/* Hero Banner */}
+      <Image 
+        source={logoBanner}
+        style={styles.dashboardHeroBanner}
+        resizeMode="cover"
+      />
+      
+      <ScrollView>
+        <View style={styles.pageTitleSection}>
+          <Text style={styles.pageTitle}>Lifting Analytics</Text>
+          <Text style={styles.pageSubtitle}>Track your strength progress</Text>
+        </View>
+
+        {/* Max Weights Section */}
+        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Personal Records (Max Weight)</Text>
+          {maxWeights.map((exercise) => (
+            <View key={exercise.name} style={{marginBottom: 16}}>
+              <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4}}>
+                <Text style={{fontSize: 14, fontWeight: '600', color: '#374151'}}>{exercise.name}</Text>
+                <Text style={{fontSize: 14, fontWeight: 'bold', color: exercise.color}}>{exercise.max} kg</Text>
+              </View>
+              <View style={{height: 24, backgroundColor: '#f3f4f6', borderRadius: 12, overflow: 'hidden'}}>
+                <View style={{
+                  height: 24,
+                  width: `${(exercise.max / overallMax) * 100}%`,
+                  backgroundColor: exercise.color,
+                  borderRadius: 12,
+                  justifyContent: 'center',
+                  alignItems: 'flex-end',
+                  paddingRight: 8,
+                }}>
+                  <Text style={{fontSize: 11, fontWeight: 'bold', color: '#fff'}}>{exercise.max} kg</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        {/* Weekly Trend Per Exercise */}
+        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Weekly Lifting Trends</Text>
+          
+          {exerciseNames.map((exerciseName) => {
+            const weights = getWeeklyWeights(exerciseName);
+            const maxW = Math.max(...weights);
+            const minW = Math.min(...weights);
+            const change = getWeekChange(exerciseName);
+            const color = exerciseColors[exerciseName];
+            
+            return (
+              <View key={exerciseName} style={{marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#f3f4f6', paddingBottom: 16}}>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8}}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <View style={{width: 12, height: 12, borderRadius: 6, backgroundColor: color, marginRight: 8}} />
+                    <Text style={{fontSize: 15, fontWeight: '600', color: '#1f2937'}}>{exerciseName}</Text>
+                  </View>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Text style={{fontSize: 15, fontWeight: 'bold', color: '#1f2937'}}>{weights[weights.length - 1]} kg</Text>
+                    <Text style={{fontSize: 12, fontWeight: '600', color: change >= 0 ? '#10b981' : '#ef4444', marginLeft: 8}}>
+                      {change >= 0 ? '+' : ''}{change} kg
+                    </Text>
+                  </View>
+                </View>
+                
+                {/* Mini bar chart for weekly weights */}
+                <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 50, gap: 3}}>
+                  {weights.map((w, i) => (
+                    <View key={i} style={{flex: 1, alignItems: 'center'}}>
+                      <Text style={{fontSize: 8, color: '#9ca3af', marginBottom: 2}}>{w}</Text>
+                      <View style={{
+                        width: '80%',
+                        height: Math.max(4, (w / maxW) * 36),
+                        backgroundColor: i === weights.length - 1 ? color : `${color}80`,
+                        borderRadius: 3,
+                      }} />
+                    </View>
+                  ))}
+                </View>
+                <View style={{flexDirection: 'row', justifyContent: 'space-between', marginTop: 4}}>
+                  <Text style={{fontSize: 9, color: '#9ca3af'}}>W1</Text>
+                  <Text style={{fontSize: 9, color: '#9ca3af'}}>W{weights.length}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+
+        {/* Weekly Volume Chart */}
+        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Total Weekly Volume</Text>
+          <View style={{flexDirection: 'row', alignItems: 'flex-end', height: 120, gap: 4}}>
+            {weeklyTotals.map((w, i) => (
+              <View key={i} style={{flex: 1, alignItems: 'center'}}>
+                <Text style={{fontSize: 9, color: '#6b7280', marginBottom: 4}}>{w.total}</Text>
+                <View style={{
+                  width: '70%',
+                  height: Math.max(8, (w.total / maxTotal) * 90),
+                  backgroundColor: i === weeklyTotals.length - 1 ? '#3b82f6' : '#93c5fd',
+                  borderRadius: 4,
+                }} />
+                <Text style={{fontSize: 8, color: '#9ca3af', marginTop: 4}}>{w.week}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Summary Stats */}
+        <View style={{backgroundColor: '#fff', borderRadius: 12, padding: 16, margin: 16, marginTop: 0, marginBottom: 32, shadowColor: '#000', shadowOffset: {width: 0, height: 2}, shadowOpacity: 0.1, shadowRadius: 4, elevation: 3}}>
+          <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 16}}>Progress Summary</Text>
+          <View style={{flexDirection: 'row', flexWrap: 'wrap', gap: 12}}>
+            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#eff6ff', borderRadius: 10, padding: 12, alignItems: 'center'}}>
+              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#3b82f6'}}>7</Text>
+              <Text style={{fontSize: 12, color: '#6b7280'}}>Weeks Tracked</Text>
+            </View>
+            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#f0fdf4', borderRadius: 10, padding: 12, alignItems: 'center'}}>
+              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#10b981'}}>140 kg</Text>
+              <Text style={{fontSize: 12, color: '#6b7280'}}>Heaviest Lift</Text>
+            </View>
+            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#fef3c7', borderRadius: 10, padding: 12, alignItems: 'center'}}>
+              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#f59e0b'}}>+17.5 kg</Text>
+              <Text style={{fontSize: 12, color: '#6b7280'}}>Bench Progress</Text>
+            </View>
+            <View style={{flex: 1, minWidth: '45%', backgroundColor: '#fce7f3', borderRadius: 10, padding: 12, alignItems: 'center'}}>
+              <Text style={{fontSize: 24, fontWeight: 'bold', color: '#ec4899'}}>+25 kg</Text>
+              <Text style={{fontSize: 12, color: '#6b7280'}}>Squat Progress</Text>
+            </View>
+          </View>
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
+
 // Main App Component
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics'>('login');
   const [selectedWorkoutDate, setSelectedWorkoutDate] = useState<Date | null>(null);
   
   // User profile data
@@ -1533,6 +1796,23 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'analytics') {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.appContainer}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => setCurrentScreen('dashboard')}>
+              <Text style={styles.backText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.appTitle}>Analytics</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <AnalyticsScreen />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <View style={styles.appContainer}>
@@ -1542,6 +1822,7 @@ export default function App() {
           onViewSessions={() => setCurrentScreen('sessions')}
           onWorkout={() => setCurrentScreen('workout')}
           onProfile={() => setCurrentScreen('profile')}
+          onAnalytics={() => setCurrentScreen('analytics')}
           onLogout={() => setCurrentScreen('login')}
         />
       </View>
