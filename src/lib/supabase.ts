@@ -10,11 +10,13 @@ export const auth = {
   signUp: async (email: string, password: string, firstName: string, lastName: string) => {
     // Create auth user with metadata — the DB trigger (SECURITY DEFINER)
     // handles creating profiles, client_profiles, and credit_balances rows
+    const redirectUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081';
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { first_name: firstName, last_name: lastName },
+        emailRedirectTo: redirectUrl,
       },
     });
     return { data, error };
