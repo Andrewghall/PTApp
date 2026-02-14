@@ -18,6 +18,7 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleAuth = async () => {
     if (!email || !password) { setErrorMsg('Please enter email and password'); return; }
@@ -92,13 +93,21 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
           
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder={isSignUp ? 'Choose a password (min 6 chars)' : 'Enter your password'}
-              secureTextEntry
-            />
+            <View style={{position: 'relative'}}>
+              <TextInput
+                style={[styles.input, {paddingRight: 48}]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder={isSignUp ? 'Choose a password (min 6 chars)' : 'Enter your password'}
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={{position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center'}}
+              >
+                <Text style={{fontSize: 20}}>{showPassword ? '🙈' : '👁️'}</Text>
+              </TouchableOpacity>
+            </View>
           </View>
           
           <TouchableOpacity 
