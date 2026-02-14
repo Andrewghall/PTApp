@@ -54,7 +54,8 @@ const CreditsScreen: React.FC = () => {
   const handlePurchase = async (pack: any) => {
     if (!clientId) return;
 
-    const displayPrice = Number(pack.price);
+    // Convert from pence to pounds for display
+    const displayPrice = Math.round(Number(pack.price) / 100);
     Alert.alert(
       'Purchase Sessions',
       `Buy ${pack.credits} sessions for £${displayPrice}?`,
@@ -120,8 +121,8 @@ const CreditsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
-            // Format price properly - remove decimals for whole numbers
-            const displayPrice = Math.round(Number(pack.price));
+            // Database stores prices in pence (2500 = £25.00), convert to pounds
+            const displayPrice = Math.round(Number(pack.price) / 100);
             const pricePerCredit = Math.round(displayPrice / pack.credits);
             const savings = hasDiscount
               ? Math.round((pack.credits * 25 * pack.discount_percent) / 100)

@@ -43,11 +43,14 @@ INSERT INTO exercises (name, category, description) VALUES
 -- ============================================
 -- 2. CREDIT PACKS (Pricing Tiers)
 -- ============================================
+-- First delete any existing packs to avoid duplicates
+DELETE FROM credit_packs;
+
 INSERT INTO credit_packs (credits, price, discount_percent, is_active) VALUES
-(1, 25.00, 0, true),           -- Single session
-(5, 120.00, 4, true),           -- 5 pack - 4% discount (£24/session)
-(10, 225.00, 10, true),         -- 10 pack - 10% discount (£22.50/session)
-(20, 400.00, 20, true);         -- 20 pack - 20% discount (£20/session)
+(1, 2500, 0, true),             -- Single session - £25.00 stored as 2500 pence
+(5, 12000, 4, true),            -- 5 pack - £120.00 stored as 12000 pence (4% discount, £24/session)
+(10, 22500, 10, true),          -- 10 pack - £225.00 stored as 22500 pence (10% discount, £22.50/session)
+(20, 40000, 20, true);          -- 20 pack - £400.00 stored as 40000 pence (20% discount, £20/session)
 
 -- ============================================
 -- 3. PT SESSIONS/SLOTS (Next 4 weeks)
