@@ -11,6 +11,7 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { db, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 
@@ -190,31 +191,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         <View style={styles.actionsGrid}>
           <QuickActionCard
             icon="calendar"
-            title="Book Session"
-            subtitle="Schedule PT"
+            title="Book"
+            subtitle="Schedule session"
             onPress={() => navigation.navigate('Book')}
-            color="#3b82f6"
+            gradientColors={['#3b82f6', '#2563eb']}
           />
           <QuickActionCard
             icon="barbell"
-            title="Log Workout"
-            subtitle="Track progress"
+            title="Workout"
+            subtitle="Log training"
             onPress={() => navigation.navigate('Workout')}
-            color="#10b981"
+            gradientColors={['#10b981', '#059669']}
           />
           <QuickActionCard
             icon="stats-chart"
-            title="View Progress"
-            subtitle="See analytics"
+            title="Progress"
+            subtitle="View analytics"
             onPress={() => navigation.navigate('Analytics')}
-            color="#8b5cf6"
+            gradientColors={['#8b5cf6', '#7c3aed']}
           />
           <QuickActionCard
-            icon="person"
-            title="Profile"
-            subtitle="Edit details"
-            onPress={() => {}}
-            color="#f59e0b"
+            icon="chatbubbles"
+            title="Messages"
+            subtitle="Chat with PT"
+            onPress={() => navigation.navigate('Messages')}
+            gradientColors={['#f59e0b', '#d97706']}
           />
         </View>
 
@@ -253,14 +254,21 @@ const QuickActionCard: React.FC<{
   title: string;
   subtitle: string;
   onPress: () => void;
-  color: string;
-}> = ({ icon, title, subtitle, onPress, color }) => (
-  <TouchableOpacity style={styles.actionCard} onPress={onPress}>
-    <View style={[styles.iconContainer, { backgroundColor: color }]}>
-      <Ionicons name={icon as any} size={24} color="white" />
-    </View>
-    <Text style={styles.actionTitle}>{title}</Text>
-    <Text style={styles.actionSubtitle}>{subtitle}</Text>
+  gradientColors: string[];
+}> = ({ icon, title, subtitle, onPress, gradientColors }) => (
+  <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
+    <LinearGradient
+      colors={gradientColors}
+      start={{ x: 0, y: 0 }}
+      end={{ x: 1, y: 1 }}
+      style={styles.actionGradient}
+    >
+      <Ionicons name={icon as any} size={32} color="white" />
+      <View style={styles.actionTextContainer}>
+        <Text style={styles.actionTitle}>{title}</Text>
+        <Text style={styles.actionSubtitle}>{subtitle}</Text>
+      </View>
+    </LinearGradient>
   </TouchableOpacity>
 );
 
@@ -414,40 +422,37 @@ const styles = StyleSheet.create({
   actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 10,
+    paddingHorizontal: 20,
+    gap: 12,
   },
   actionCard: {
     width: '47%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    margin: 10,
-    alignItems: 'center',
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 6,
   },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+  actionGradient: {
+    padding: 20,
+    minHeight: 120,
+    justifyContent: 'space-between',
+  },
+  actionTextContainer: {
+    marginTop: 12,
   },
   actionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: 'white',
+    marginBottom: 2,
   },
   actionSubtitle: {
     fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontWeight: '500',
   },
   workoutsList: {
     paddingHorizontal: 20,
