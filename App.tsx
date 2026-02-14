@@ -687,10 +687,10 @@ const CreditsScreen = () => {
   const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
   
   const creditPacks = [
-    { id: 1, credits: 4, price: 100, description: '4 Sessions - Minimum package' },
-    { id: 2, credits: 8, price: 200, description: '8 Sessions - Popular choice' },
-    { id: 3, credits: 12, price: 300, description: '12 Sessions - Best value' },
-    { id: 4, credits: 20, price: 500, description: '20 Sessions - Premium package' },
+    { id: 1, credits: 4, price: 100, bonus: 0, description: '4 Sessions - Minimum package' },
+    { id: 2, credits: 8, price: 200, bonus: 0, description: '8 Sessions - Popular choice' },
+    { id: 3, credits: 12, price: 300, bonus: 1, description: '12 Sessions + 1 FREE Session!' },
+    { id: 4, credits: 20, price: 500, bonus: 2, description: '20 Sessions + 2 FREE Sessions!' },
   ];
 
   const handlePurchase = (pack: typeof creditPacks[0]) => {
@@ -729,13 +729,26 @@ const CreditsScreen = () => {
         </View>
 
       {creditPacks.map((pack) => (
-        <View key={pack.id} style={styles.creditPack}>
+        <View key={pack.id} style={[styles.creditPack, pack.bonus > 0 && {borderWidth: 2, borderColor: '#10b981'}]}>
+          {pack.bonus > 0 && (
+            <View style={{backgroundColor: '#10b981', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12, position: 'absolute', top: -12, right: 16, zIndex: 1}}>
+              <Text style={{color: '#fff', fontSize: 11, fontWeight: 'bold'}}>+{pack.bonus} FREE SESSION{pack.bonus > 1 ? 'S' : ''}!</Text>
+            </View>
+          )}
           <View style={styles.packInfo}>
-            <Text style={styles.packCredits}>{pack.credits} Credits</Text>
+            <Text style={styles.packCredits}>{pack.credits + pack.bonus} Sessions</Text>
             <Text style={styles.packDescription}>{pack.description}</Text>
+            {pack.bonus > 0 && (
+              <Text style={{fontSize: 12, color: '#10b981', fontWeight: '700', marginTop: 4}}>
+                Save €{pack.bonus * 25}! ({pack.bonus} free session{pack.bonus > 1 ? 's' : ''} worth €{pack.bonus * 25})
+              </Text>
+            )}
           </View>
           <View style={styles.packPricing}>
             <Text style={styles.packPrice}>€{pack.price}</Text>
+            {pack.bonus > 0 && (
+              <Text style={{fontSize: 10, color: '#6b7280', textDecorationLine: 'line-through'}}>€{(pack.credits + pack.bonus) * 25}</Text>
+            )}
             <TouchableOpacity 
               style={[styles.buyButton, loading && styles.buyButtonDisabled]}
               onPress={() => handlePurchase(pack)}
@@ -1367,14 +1380,15 @@ const ProfileScreen = ({ userProfile, onBack }: {
 };
 
 // Simple Dashboard Screen
-const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile, onAnalytics }: { 
+const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile, onAnalytics, onCancelSession }: { 
   onBuyCredits: () => void, 
   onBookSession: () => void,
   onViewSessions: () => void,
   onLogout: () => void,
   onWorkout: () => void,
   onProfile: () => void,
-  onAnalytics: () => void
+  onAnalytics: () => void,
+  onCancelSession: () => void
 }) => {
   return (
     <View style={styles.dashboardContainer}>
@@ -1428,8 +1442,213 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
             <Text style={styles.actionIcon}>📊</Text>
             <Text style={styles.actionText}>Analytics</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={[styles.actionCard, {borderColor: '#ef4444', borderWidth: 1}]} onPress={onCancelSession}>
+            <Text style={styles.actionIcon}>❌</Text>
+            <Text style={styles.actionText}>Cancel Session</Text>
+          </TouchableOpacity>
         </View>
       </View>
+    </View>
+  );
+};
+
+// Cancel Session Screen
+const CancelSessionScreen = () => {
+  const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
+
+  const today = new Date();
+
+  const bookedSessions = [
+    { id: 1, date: new Date(2026, 1, 15), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 2, date: new Date(2026, 1, 16), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
+    { id: 3, date: new Date(2026, 1, 18), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 4, date: new Date(2026, 1, 20), time: '17:00 - 19:00', label: 'Evening Session', icon: '🌙' },
+    { id: 5, date: new Date(2026, 1, 22), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 6, date: new Date(2026, 1, 25), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
+  ];
+
+  const getDaysUntil = (date: Date) => {
+    const diff = date.getTime() - today.getTime();
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const isWithin2Days = (date: Date) => getDaysUntil(date) <= 2;
+
+  const toggleSession = (id: number) => {
+    setSelectedSessions(prev => 
+      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    );
+  };
+
+  const selectedSessionsData = bookedSessions.filter(s => selectedSessions.includes(s.id));
+  const chargedSessions = selectedSessionsData.filter(s => isWithin2Days(s.date));
+  const freeCancellations = selectedSessionsData.filter(s => !isWithin2Days(s.date));
+
+  const handleCancel = () => {
+    setShowConfirmModal(false);
+    setSelectedSessions([]);
+    setCancelSuccess(`${selectedSessionsData.length} session${selectedSessionsData.length > 1 ? 's' : ''} cancelled successfully.${chargedSessions.length > 0 ? ` ${chargedSessions.length} session${chargedSessions.length > 1 ? 's were' : ' was'} within 48 hours and will be charged.` : ''}`);
+    setTimeout(() => setCancelSuccess(null), 5000);
+  };
+
+  const formatDate = (date: Date) => {
+    return date.toLocaleDateString('en-GB', { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
+  return (
+    <View style={styles.sessionsContainer}>
+      <Image source={logoBanner} style={styles.dashboardHeroBanner} resizeMode="cover" />
+
+      <ScrollView>
+        <View style={styles.pageTitleSection}>
+          <Text style={styles.pageTitle}>Cancel Sessions</Text>
+          <Text style={styles.pageSubtitle}>Select sessions you want to cancel</Text>
+        </View>
+
+        {/* Warning Banner */}
+        <View style={{backgroundColor: '#fef3c7', borderRadius: 12, padding: 14, margin: 16, marginBottom: 0, borderLeftWidth: 4, borderLeftColor: '#f59e0b'}}>
+          <Text style={{fontSize: 13, fontWeight: 'bold', color: '#92400e', marginBottom: 4}}>Cancellation Policy</Text>
+          <Text style={{fontSize: 12, color: '#92400e', lineHeight: 18}}>
+            Sessions cancelled more than 48 hours in advance are free.{'\n'}
+            Sessions within 48 hours will still be charged (1 credit).
+          </Text>
+        </View>
+
+        {/* Session List */}
+        {bookedSessions.map((session) => {
+          const daysUntil = getDaysUntil(session.date);
+          const within2 = isWithin2Days(session.date);
+          const isSelected = selectedSessions.includes(session.id);
+
+          return (
+            <TouchableOpacity
+              key={session.id}
+              onPress={() => toggleSession(session.id)}
+              style={{
+                backgroundColor: isSelected ? (within2 ? '#fef2f2' : '#f0fdf4') : '#fff',
+                borderRadius: 12, padding: 14, margin: 16, marginBottom: 0,
+                borderWidth: isSelected ? 2 : 1,
+                borderColor: isSelected ? (within2 ? '#ef4444' : '#10b981') : '#e5e7eb',
+                flexDirection: 'row', alignItems: 'center',
+              }}
+            >
+              {/* Checkbox */}
+              <View style={{
+                width: 24, height: 24, borderRadius: 6, marginRight: 12,
+                borderWidth: 2, borderColor: isSelected ? (within2 ? '#ef4444' : '#10b981') : '#d1d5db',
+                backgroundColor: isSelected ? (within2 ? '#ef4444' : '#10b981') : 'transparent',
+                justifyContent: 'center', alignItems: 'center',
+              }}>
+                {isSelected && <Text style={{color: '#fff', fontSize: 14, fontWeight: 'bold'}}>✓</Text>}
+              </View>
+
+              {/* Session Info */}
+              <View style={{flex: 1}}>
+                <View style={{flexDirection: 'row', alignItems: 'center', marginBottom: 2}}>
+                  <Text style={{fontSize: 16}}>{session.icon} </Text>
+                  <Text style={{fontSize: 15, fontWeight: '600', color: '#1f2937'}}>{session.label}</Text>
+                </View>
+                <Text style={{fontSize: 13, color: '#6b7280'}}>{formatDate(session.date)} • {session.time}</Text>
+                <Text style={{fontSize: 12, color: within2 ? '#ef4444' : '#10b981', fontWeight: '600', marginTop: 2}}>
+                  {daysUntil <= 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil} days`}
+                  {within2 ? ' - Will be charged' : ' - Free cancellation'}
+                </Text>
+              </View>
+
+              {/* Charge indicator */}
+              {within2 && (
+                <View style={{backgroundColor: '#fef2f2', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8}}>
+                  <Text style={{fontSize: 10, fontWeight: 'bold', color: '#ef4444'}}>CHARGED</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          );
+        })}
+
+        <View style={{height: 100}} />
+      </ScrollView>
+
+      {/* Success Banner */}
+      {cancelSuccess && (
+        <View style={{position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: '#10b981', padding: 16, zIndex: 100}}>
+          <Text style={{color: '#fff', fontWeight: 'bold', textAlign: 'center'}}>{cancelSuccess}</Text>
+        </View>
+      )}
+
+      {/* Bottom Cancel Button */}
+      {selectedSessions.length > 0 && (
+        <View style={{position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: '#fff', padding: 16, borderTopWidth: 1, borderTopColor: '#e5e7eb', shadowColor: '#000', shadowOffset: {width: 0, height: -2}, shadowOpacity: 0.1, shadowRadius: 4}}>
+          <Text style={{fontSize: 13, color: '#6b7280', textAlign: 'center', marginBottom: 8}}>
+            {selectedSessions.length} session{selectedSessions.length > 1 ? 's' : ''} selected
+            {chargedSessions.length > 0 && (
+              ` • ${chargedSessions.length} will be charged`
+            )}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowConfirmModal(true)}
+            style={{backgroundColor: '#ef4444', paddingVertical: 14, borderRadius: 12, alignItems: 'center'}}
+          >
+            <Text style={{color: '#fff', fontSize: 16, fontWeight: 'bold'}}>
+              Cancel {selectedSessions.length} Session{selectedSessions.length > 1 ? 's' : ''}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Confirm Modal */}
+      <Modal visible={showConfirmModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Confirm Cancellation</Text>
+              <TouchableOpacity onPress={() => setShowConfirmModal(false)}>
+                <Text style={styles.closeButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={{fontSize: 14, color: '#374151', marginBottom: 12}}>
+                You are about to cancel {selectedSessionsData.length} session{selectedSessionsData.length > 1 ? 's' : ''}:
+              </Text>
+
+              {freeCancellations.length > 0 && (
+                <View style={{marginBottom: 12}}>
+                  <Text style={{fontSize: 13, fontWeight: '600', color: '#10b981', marginBottom: 4}}>Free cancellations:</Text>
+                  {freeCancellations.map(s => (
+                    <Text key={s.id} style={{fontSize: 13, color: '#374151', marginLeft: 8}}>• {formatDate(s.date)} - {s.label}</Text>
+                  ))}
+                </View>
+              )}
+
+              {chargedSessions.length > 0 && (
+                <View style={{backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 12}}>
+                  <Text style={{fontSize: 13, fontWeight: 'bold', color: '#ef4444', marginBottom: 4}}>
+                    ⚠️ These sessions are within 48 hours and you WILL be charged:
+                  </Text>
+                  {chargedSessions.map(s => (
+                    <Text key={s.id} style={{fontSize: 13, color: '#991b1b', marginLeft: 8}}>• {formatDate(s.date)} - {s.label} (1 credit)</Text>
+                  ))}
+                </View>
+              )}
+            </View>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={[styles.cancelButton, styles.modalButton]}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Go Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[{backgroundColor: '#ef4444'}, styles.modalButton]}
+                onPress={handleCancel}
+              >
+                <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 15}}>Confirm Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -1722,7 +1941,7 @@ const AnalyticsScreen = () => {
 
 // Main App Component
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics' | 'cancelSession'>('login');
   const [selectedWorkoutDate, setSelectedWorkoutDate] = useState<Date | null>(null);
   
   // User profile data
@@ -1852,6 +2071,23 @@ export default function App() {
     );
   }
 
+  if (currentScreen === 'cancelSession') {
+    return (
+      <SafeAreaProvider>
+        <View style={styles.appContainer}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => setCurrentScreen('dashboard')}>
+              <Text style={styles.backText}>← Back</Text>
+            </TouchableOpacity>
+            <Text style={styles.appTitle}>Cancel Session</Text>
+            <View style={styles.placeholder} />
+          </View>
+          <CancelSessionScreen />
+        </View>
+      </SafeAreaProvider>
+    );
+  }
+
   return (
     <SafeAreaProvider>
       <View style={styles.appContainer}>
@@ -1862,6 +2098,7 @@ export default function App() {
           onWorkout={() => setCurrentScreen('workout')}
           onProfile={() => setCurrentScreen('profile')}
           onAnalytics={() => setCurrentScreen('analytics')}
+          onCancelSession={() => setCurrentScreen('cancelSession')}
           onLogout={() => setCurrentScreen('login')}
         />
       </View>
