@@ -105,7 +105,7 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
                 onPress={() => setShowPassword(!showPassword)}
                 style={{position: 'absolute', right: 12, top: 0, bottom: 0, justifyContent: 'center'}}
               >
-                <Text style={{fontSize: 20}}>{showPassword ? '🙈' : '👁️'}</Text>
+                <Text style={{fontSize: 14, color: '#6b7280', fontWeight: '600'}}>{showPassword ? 'HIDE' : 'SHOW'}</Text>
               </TouchableOpacity>
             </View>
           </View>
