@@ -27,44 +27,56 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.card}>
-        <View style={styles.logoContainer}>
-          <Text style={styles.logoText}>Elevate Gym</Text>
-        </View>
-        <Image 
-          source={logoBanner}
-          style={styles.heroBanner}
-          resizeMode="cover"
-        />
-        <Text style={styles.subtitle}>Welcome back</Text>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="Enter your email"
-            keyboardType="email-address"
-            autoCapitalize="none"
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        <View style={styles.card}>
+          <View style={styles.logoContainer}>
+            <Text style={styles.logoText}>Elevate Gym</Text>
+          </View>
+          <Image 
+            source={logoBanner}
+            style={styles.heroBanner}
+            resizeMode="cover"
           />
+          <Text style={styles.subtitle}>Welcome back</Text>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Email</Text>
+            <TextInput
+              style={styles.input}
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter your email"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+          </View>
+          
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Password</Text>
+            <TextInput
+              style={styles.input}
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Enter your password"
+              secureTextEntry
+            />
+          </View>
+          
+          <TouchableOpacity 
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleAuth}
+            disabled={loading}
+          >
+            <Text style={styles.buttonText}>
+              {loading ? 'Signing in...' : 'Sign In'}
+            </Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.linkButton}>
+            <Text style={styles.linkText}>Forgot password?</Text>
+          </TouchableOpacity>
         </View>
-        
-        <View style={styles.inputContainer}>
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Enter your password"
-            secureTextEntry
-          />
-        </View>
-        
-        <TouchableOpacity style={styles.button} onPress={handleAuth}>
-          <Text style={styles.buttonText}>Sign In</Text>
-        </TouchableOpacity>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -1566,8 +1578,14 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   container: {
-    minHeight: '100vh',
+    flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
     padding: 20,
   },
   logoContainer: {
