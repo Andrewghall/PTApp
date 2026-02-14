@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "PT Business App",
+    "slug": "pt-business-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ptbusiness.app"
+    },
+    "android": {
+      "package": "com.ptbusiness.app"
+    },
+    "web": {},
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "plugins": [
+      "expo-font"
+    ],
+    "sdkVersion": "54.0.0",
+    "extra": {
+      "eas": {
+        "projectId": "94778513-7291-4be2-883d-17cc3a9383c3"
+      }
+    }
+  }
+}
