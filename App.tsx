@@ -2243,7 +2243,7 @@ export default function App() {
       }
     });
     return () => { listener?.subscription?.unsubscribe(); };
-  }, [loadUserData]);
+  }, []);
 
   const refreshData = async () => { if (userId) await loadUserData(userId); };
 
