@@ -1,29 +1,43 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, SafeAreaView, Image, Alert, Modal, Platform } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, SafeAreaView, Image, Alert, Modal, Platform, ActivityIndicator } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle, Line, Text as SvgText, Rect } from 'react-native-svg';
+import { auth, db } from './src/lib/supabase';
 
 // Import the logo banner image
 const logoBanner = require('./logo banner.png');
 
-// Simple Login Screen
+// Login Screen with real Supabase auth
 const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const handleAuth = () => {
-    if (!email || !password) {
-      return;
-    }
-    
+  const handleAuth = async () => {
+    if (!email || !password) { setErrorMsg('Please enter email and password'); return; }
+    if (isSignUp && (!firstName || !lastName)) { setErrorMsg('Please enter your name'); return; }
+    setErrorMsg(null);
+    setSuccessMsg(null);
     setLoading(true);
-    // Simulate login
-    setTimeout(() => {
+
+    if (isSignUp) {
+      const { error } = await auth.signUp(email, password, firstName, lastName);
       setLoading(false);
+      if (error) { setErrorMsg(error.message); return; }
+      setSuccessMsg('Account created! Check your email to confirm, then sign in.');
+      setIsSignUp(false);
+    } else {
+      const { error } = await auth.signIn(email, password);
+      setLoading(false);
+      if (error) { setErrorMsg(error.message); return; }
       onLogin();
-    }, 1000);
+    }
   };
 
   return (
@@ -35,10 +49,34 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
           </View>
           <Image 
             source={logoBanner}
-            style={styles.heroBanner}
+            style={styles.heroBanner as any}
             resizeMode="cover"
           />
-          <Text style={styles.subtitle}>Welcome back</Text>
+          <Text style={styles.subtitle}>{isSignUp ? 'Create your account' : 'Welcome back'}</Text>
+          
+          {errorMsg && (
+            <View style={{backgroundColor: '#fef2f2', padding: 12, borderRadius: 8, marginBottom: 12}}>
+              <Text style={{color: '#dc2626', fontSize: 13, textAlign: 'center'}}>{errorMsg}</Text>
+            </View>
+          )}
+          {successMsg && (
+            <View style={{backgroundColor: '#f0fdf4', padding: 12, borderRadius: 8, marginBottom: 12}}>
+              <Text style={{color: '#16a34a', fontSize: 13, textAlign: 'center'}}>{successMsg}</Text>
+            </View>
+          )}
+
+          {isSignUp && (
+            <>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>First Name</Text>
+                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" />
+              </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Last Name</Text>
+                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" />
+              </View>
+            </>
+          )}
           
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
@@ -58,23 +96,25 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
               style={styles.input}
               value={password}
               onChangeText={setPassword}
-              placeholder="Enter your password"
+              placeholder={isSignUp ? 'Choose a password (min 6 chars)' : 'Enter your password'}
               secureTextEntry
             />
           </View>
           
           <TouchableOpacity 
-            style={[styles.button, loading && styles.buttonDisabled]}
+            style={[styles.button, loading && styles.buyButtonDisabled]}
             onPress={handleAuth}
             disabled={loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Signing in...' : 'Sign In'}
+              {loading ? (isSignUp ? 'Creating account...' : 'Signing in...') : (isSignUp ? 'Sign Up' : 'Sign In')}
             </Text>
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.linkButton}>
-            <Text style={styles.linkText}>Forgot password?</Text>
+          <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setErrorMsg(null); setSuccessMsg(null); }} style={{marginTop: 12, alignItems: 'center'}}>
+            <Text style={{color: '#3b82f6', fontSize: 14}}>
+              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -82,13 +122,29 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
   );
 };
 
-// Booking Screen with Modern Calendar
-const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: BookedSession[], onBookSession: (session: { date: Date, time: string, label: string, icon: string }) => void }) => {
+// Booking Screen with Modern Calendar — real Supabase slots
+const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: any[], onBookSession: (slotId: string) => Promise<void> }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [bookingSuccess, setBookingSuccess] = useState(false);
-  
+  const [bookingLoading, setBookingLoading] = useState(false);
+  const [dbSlots, setDbSlots] = useState<any[]>([]);
+
+  // Load slots from Supabase for the current month
+  useEffect(() => {
+    const loadSlots = async () => {
+      const year = selectedDate.getFullYear();
+      const month = selectedDate.getMonth();
+      const startDate = new Date(year, month, 1).toISOString();
+      const endDate = new Date(year, month + 1, 0, 23, 59, 59).toISOString();
+      const { data } = await db.getSlots(startDate, endDate);
+      if (data) setDbSlots(data);
+    };
+    loadSlots();
+  }, [selectedDate.getMonth(), selectedDate.getFullYear()]);
+
   // Generate time slots for Monday to Friday
   const timeSlots = [
     { time: '7:30-9:30', label: 'Morning Session', icon: '🌅' },
@@ -105,34 +161,45 @@ const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: Book
     const daysInMonth = lastDay.getDate();
     const startingDayOfWeek = firstDay.getDay();
     
-    const days = [];
-    
-    // Add empty cells for days before month starts
-    for (let i = 0; i < startingDayOfWeek; i++) {
-      days.push(null);
-    }
-    
-    // Add all days of the month
-    for (let i = 1; i <= daysInMonth; i++) {
-      days.push(i);
-    }
-    
+    const days: (number | null)[] = [];
+    for (let i = 0; i < startingDayOfWeek; i++) { days.push(null); }
+    for (let i = 1; i <= daysInMonth; i++) { days.push(i); }
     return days;
   };
   
+  // Find DB slot for a given day + time
+  const findDbSlot = (day: number, slotTime: string) => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    return dbSlots.find(s => {
+      const start = new Date(s.start_time);
+      const h = start.getHours();
+      const m = start.getMinutes().toString().padStart(2, '0');
+      const end = new Date(s.end_time);
+      const h2 = end.getHours();
+      const m2 = end.getMinutes().toString().padStart(2, '0');
+      const slotStr = `${h}:${m}-${h2}:${m2}`;
+      return start.getFullYear() === year && start.getMonth() === month && start.getDate() === day && slotStr === slotTime;
+    });
+  };
+
   // Check booked sessions for slot availability
   const getBookingsForDate = (day: number) => {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
     const dateToCheck = new Date(year, month, day);
     return bookedSessions
-      .filter(s => s.date.getFullYear() === dateToCheck.getFullYear() && s.date.getMonth() === dateToCheck.getMonth() && s.date.getDate() === dateToCheck.getDate())
-      .map(s => s.time.replace(' - ', '-').replace(/ /g, ''));
+      .filter((s: any) => s.date.getFullYear() === dateToCheck.getFullYear() && s.date.getMonth() === dateToCheck.getMonth() && s.date.getDate() === dateToCheck.getDate())
+      .map((s: any) => s.time.replace(' - ', '-').replace(/ /g, ''));
   };
   
   const isSlotAvailable = (day: number, slot: string) => {
     const bookings = getBookingsForDate(day);
-    return !bookings.includes(slot);
+    if (bookings.includes(slot)) return false;
+    // Also check DB slot capacity
+    const dbSlot = findDbSlot(day, slot);
+    if (!dbSlot) return false; // No slot in DB = not available
+    return dbSlot.booked_count < dbSlot.capacity;
   };
   
   const handleBooking = () => {
@@ -141,21 +208,16 @@ const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: Book
     }
   };
   
-  const confirmBooking = () => {
-    if (selectedSlot) {
-      const slot = timeSlots.find(s => s.time === selectedSlot);
-      if (slot) {
-        onBookSession({
-          date: selectedDate,
-          time: slot.time.replace('-', ' - '),
-          label: slot.label,
-          icon: slot.icon,
-        });
-      }
+  const confirmBooking = async () => {
+    if (selectedSlotId) {
+      setBookingLoading(true);
+      await onBookSession(selectedSlotId);
+      setBookingLoading(false);
     }
     setShowConfirmation(false);
     setBookingSuccess(true);
     setSelectedSlot(null);
+    setSelectedSlotId(null);
     setTimeout(() => setBookingSuccess(false), 3000);
   };
   
@@ -279,7 +341,13 @@ const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: Book
                     !available && styles.unavailableSlot,
                     isSelected && styles.selectedSlot
                   ]}
-                  onPress={() => available && setSelectedSlot(slot.time)}
+                  onPress={() => {
+                    if (available) {
+                      setSelectedSlot(slot.time);
+                      const dbSlot = findDbSlot(currentDay, slot.time);
+                      setSelectedSlotId(dbSlot?.id || null);
+                    }
+                  }}
                   disabled={!available}
                 >
                   <View style={styles.slotHeader}>
@@ -1464,9 +1532,9 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
 };
 
 // Cancel Session Screen
-type BookedSession = { id: number, date: Date, time: string, label: string, icon: string };
-const CancelSessionScreen = ({ sessions, onCancelSessions }: { sessions: BookedSession[], onCancelSessions: (ids: number[]) => void }) => {
-  const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
+type BookedSession = { id: string, date: Date, time: string, label: string, icon: string, slotId: string, bookingId: string };
+const CancelSessionScreen = ({ sessions, onCancelSessions }: { sessions: BookedSession[], onCancelSessions: (ids: string[]) => void }) => {
+  const [selectedSessions, setSelectedSessions] = useState<string[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
 
@@ -1479,7 +1547,7 @@ const CancelSessionScreen = ({ sessions, onCancelSessions }: { sessions: BookedS
 
   const isWithin2Days = (date: Date) => getDaysUntil(date) <= 2;
 
-  const toggleSession = (id: number) => {
+  const toggleSession = (id: string) => {
     setSelectedSessions(prev => 
       prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
     );
@@ -1952,45 +2020,127 @@ const AnalyticsScreen = () => {
   );
 };
 
-// Main App Component
+// Main App Component — real Supabase data
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics' | 'cancelSession'>('login');
+  const [currentScreen, setCurrentScreen] = useState<'loading' | 'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics' | 'cancelSession'>('loading');
   const [selectedWorkoutDate, setSelectedWorkoutDate] = useState<Date | null>(null);
-  
-  // Shared booked sessions state
-  const [bookedSessions, setBookedSessions] = useState([
-    { id: 1, date: new Date(2026, 1, 15), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 2, date: new Date(2026, 1, 16), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
-    { id: 3, date: new Date(2026, 1, 18), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 4, date: new Date(2026, 1, 20), time: '17:00 - 19:00', label: 'Evening Session', icon: '🌙' },
-    { id: 5, date: new Date(2026, 1, 22), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 6, date: new Date(2026, 1, 25), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
-  ]);
 
-  const cancelSessions = (ids: number[]) => {
-    setBookedSessions(prev => prev.filter(s => !ids.includes(s.id)));
+  // Auth + profile state
+  const [userId, setUserId] = useState<string | null>(null);
+  const [clientProfileId, setClientProfileId] = useState<string | null>(null);
+  const [clientProfile, setClientProfile] = useState<any>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [bookedSessions, setBookedSessions] = useState<any[]>([]);
+
+  // Load all user data from Supabase
+  const loadUserData = useCallback(async (uid: string) => {
+    const { data: profile } = await db.getClientProfile(uid);
+    if (profile) {
+      setClientProfile(profile);
+      setClientProfileId(profile.id);
+      const { data: bal } = await db.getCreditBalance(profile.id);
+      setCreditBalance(bal?.balance ?? 0);
+      const { data: bookings } = await db.getClientBookings(profile.id, 'booked');
+      if (bookings) {
+        const mapped = bookings.map((b: any) => {
+          const start = new Date(b.slots.start_time);
+          const end = new Date(b.slots.end_time);
+          const timeStr = `${start.getHours()}:${start.getMinutes().toString().padStart(2,'0')} - ${end.getHours()}:${end.getMinutes().toString().padStart(2,'0')}`;
+          const h = start.getHours();
+          return { id: b.id, date: start, time: timeStr, label: h < 10 ? 'Morning Session' : 'Late Morning', icon: h < 10 ? '🌅' : '☀️', slotId: b.slots.id, bookingId: b.id };
+        });
+        setBookedSessions(mapped);
+      }
+    }
+  }, []);
+
+  // Auth listener — auto-login if session exists
+  useEffect(() => {
+    const init = async () => {
+      const { session } = await auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+        await loadUserData(session.user.id);
+        setCurrentScreen('dashboard');
+      } else {
+        setCurrentScreen('login');
+      }
+    };
+    init();
+    const { data: listener } = auth.onAuthStateChange(async (_event: string, session: any) => {
+      if (session?.user) {
+        setUserId(session.user.id);
+        await loadUserData(session.user.id);
+      } else {
+        setUserId(null); setClientProfileId(null); setClientProfile(null);
+        setCreditBalance(0); setBookedSessions([]);
+        setCurrentScreen('login');
+      }
+    });
+    return () => { listener?.subscription?.unsubscribe(); };
+  }, [loadUserData]);
+
+  const refreshData = async () => { if (userId) await loadUserData(userId); };
+
+  // Cancel sessions via Supabase
+  const cancelSessionsHandler = async (ids: any[]) => {
+    for (const id of ids) {
+      const session = bookedSessions.find((s: any) => s.id === id);
+      if (session) {
+        await db.cancelBooking(session.bookingId, session.slotId);
+        const hoursUntil = (session.date.getTime() - Date.now()) / (1000 * 60 * 60);
+        if (hoursUntil > 48 && clientProfileId) {
+          await db.refundCredit(clientProfileId, `Refund: cancelled ${session.label}`);
+        }
+      }
+    }
+    await refreshData();
   };
 
-  const addBookedSession = (session: { date: Date, time: string, label: string, icon: string }) => {
-    const newId = bookedSessions.length > 0 ? Math.max(...bookedSessions.map(s => s.id)) + 1 : 1;
-    setBookedSessions(prev => [...prev, { id: newId, ...session }]);
+  // Book a session via Supabase
+  const addBookedSession = async (slotId: string) => {
+    if (!clientProfileId) return;
+    if (creditBalance <= 0) return;
+    const { error: creditErr } = await db.deductCredit(clientProfileId, 'Session booking');
+    if (creditErr) return;
+    await db.createBooking(slotId, clientProfileId);
+    await refreshData();
   };
 
-  // User profile data
-  const [userProfile, setUserProfile] = useState({
-    name: 'John Doe',
-    email: 'john@elevategym.com',
-    gender: 'male', // male or female
-    dateOfBirth: new Date(1990, 5, 15), // June 15, 1990
-    membershipStartDate: new Date(2023, 0, 1), // January 1, 2023
-    sessionsAttended: 24,
-    profileImage: null // URL to uploaded profile image
-  });
+  // User profile object for screens
+  const userProfile = clientProfile ? {
+    name: `${clientProfile.first_name} ${clientProfile.last_name}`,
+    email: clientProfile.email || '',
+    gender: 'male',
+    dateOfBirth: new Date(1990, 5, 15),
+    membershipStartDate: new Date(clientProfile.created_at),
+    sessionsAttended: 0,
+    profileImage: null,
+  } : { name: 'Loading...', email: '', gender: 'male', dateOfBirth: new Date(), membershipStartDate: new Date(), sessionsAttended: 0, profileImage: null };
+
+  // Loading screen
+  if (currentScreen === 'loading') {
+    return (
+      <SafeAreaProvider>
+        <View style={{flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc'}}>
+          <ActivityIndicator size="large" color="#3b82f6" />
+          <Text style={{marginTop: 16, color: '#6b7280', fontSize: 16}}>Loading...</Text>
+        </View>
+      </SafeAreaProvider>
+    );
+  }
 
   if (currentScreen === 'login') {
     return (
       <SafeAreaProvider>
-        <LoginScreen onLogin={() => setCurrentScreen('dashboard')} />
+        <LoginScreen onLogin={async () => {
+          const { session } = await auth.getSession();
+          if (session?.user) {
+            setUserId(session.user.id);
+            await loadUserData(session.user.id);
+          }
+          setCurrentScreen('dashboard');
+        }} />
       </SafeAreaProvider>
     );
   }
@@ -2114,7 +2264,7 @@ export default function App() {
             <Text style={styles.appTitle}>Cancel Session</Text>
             <View style={styles.placeholder} />
           </View>
-          <CancelSessionScreen sessions={bookedSessions} onCancelSessions={cancelSessions} />
+          <CancelSessionScreen sessions={bookedSessions} onCancelSessions={cancelSessionsHandler} />
         </View>
       </SafeAreaProvider>
     );
@@ -2131,7 +2281,7 @@ export default function App() {
           onProfile={() => setCurrentScreen('profile')}
           onAnalytics={() => setCurrentScreen('analytics')}
           onCancelSession={() => setCurrentScreen('cancelSession')}
-          onLogout={() => setCurrentScreen('login')}
+          onLogout={async () => { await auth.signOut(); setCurrentScreen('login'); }}
         />
       </View>
     </SafeAreaProvider>
