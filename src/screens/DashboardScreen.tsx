@@ -8,10 +8,14 @@ import {
   SafeAreaView,
   RefreshControl,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+
+// Import the logo banner image
+const logoBanner = require('../../logo banner.png');
 
 interface DashboardScreenProps {
   navigation: any;
@@ -87,6 +91,9 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
+        {/* Hero Banner */}
+        <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
         {/* Header */}
         <View style={styles.header}>
           <View>
@@ -240,6 +247,10 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     flex: 1,
+  },
+  heroBanner: {
+    width: '100%',
+    height: 160,
   },
   header: {
     flexDirection: 'row',
