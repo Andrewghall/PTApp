@@ -120,11 +120,11 @@ const CreditsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
-            // Format price properly (handle both decimal and integer formats)
-            const displayPrice = Number(pack.price);
-            const pricePerCredit = (displayPrice / pack.credits).toFixed(2);
+            // Format price properly - remove decimals for whole numbers
+            const displayPrice = Math.round(Number(pack.price));
+            const pricePerCredit = Math.round(displayPrice / pack.credits);
             const savings = hasDiscount
-              ? ((pack.credits * 25 * pack.discount_percent) / 100).toFixed(0)
+              ? Math.round((pack.credits * 25 * pack.discount_percent) / 100)
               : 0;
 
             return (
