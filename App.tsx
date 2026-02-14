@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, SafeAreaView, Image, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, SafeAreaView, Image, Alert, Modal, Platform } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import Svg, { Path, Circle, Line, Text as SvgText, Rect } from 'react-native-svg';
@@ -684,6 +684,7 @@ const CreditsScreen = () => {
   const [showMBWayModal, setShowMBWayModal] = useState(false);
   const [selectedPack, setSelectedPack] = useState<typeof creditPacks[0] | null>(null);
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [paymentSuccess, setPaymentSuccess] = useState<string | null>(null);
   
   const creditPacks = [
     { id: 1, credits: 4, price: 100, description: '4 Sessions - Minimum package' },
@@ -707,7 +708,8 @@ const CreditsScreen = () => {
       setShowMBWayModal(false);
       setPhoneNumber('');
       setSelectedPack(null);
-      Alert.alert('Success', `MB Way payment of €${selectedPack.price} completed! ${selectedPack.credits} credits added to your account.`);
+      setPaymentSuccess(`MB Way payment of €${selectedPack.price} completed! ${selectedPack.credits} credits added to your account.`);
+      setTimeout(() => setPaymentSuccess(null), 5000);
     }, 3000);
   };
 
@@ -761,9 +763,17 @@ const CreditsScreen = () => {
           <Text style={styles.paymentMethod}>💳 MB Way</Text>
         </View>
       </View>
+      </ScrollView>
+
+      {/* Success Banner */}
+      {paymentSuccess && (
+        <View style={{position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: '#10b981', padding: 16, zIndex: 100}}>
+          <Text style={{color: '#fff', fontWeight: 'bold', textAlign: 'center'}}>{paymentSuccess}</Text>
+        </View>
+      )}
 
       {/* MB Way Payment Modal */}
-      {showMBWayModal && selectedPack && (
+      <Modal visible={showMBWayModal && !!selectedPack} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -774,8 +784,8 @@ const CreditsScreen = () => {
             </View>
             
             <View style={styles.modalBody}>
-              <Text style={styles.paymentAmount}>€{selectedPack.price}</Text>
-              <Text style={styles.paymentDescription}>{selectedPack.description}</Text>
+              <Text style={styles.paymentAmount}>€{selectedPack?.price}</Text>
+              <Text style={styles.paymentDescription}>{selectedPack?.description}</Text>
               
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>MB Way Phone Number</Text>
@@ -790,9 +800,9 @@ const CreditsScreen = () => {
               </View>
               
               <Text style={styles.mbWayInstructions}>
-                1. Enter your MB Way phone number
-                2. Tap "Pay with MB Way"
-                3. Confirm payment in your MB Way app
+                1. Enter your MB Way phone number{'\n'}
+                2. Tap "Pay with MB Way"{'\n'}
+                3. Confirm payment in your MB Way app{'\n'}
                 4. Credits will be added automatically
               </Text>
             </View>
@@ -816,8 +826,7 @@ const CreditsScreen = () => {
             </View>
           </View>
         </View>
-      )}
-      </ScrollView>
+      </Modal>
     </View>
   );
 };
