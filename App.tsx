@@ -1769,13 +1769,35 @@ const CancelSessionScreen = ({ sessions, onCancelSessions }: { sessions: BookedS
   );
 };
 
-// Analytics Screen
-const AnalyticsScreen = () => {
+// Analytics Screen — loads real workout data from Supabase
+const AnalyticsScreen = ({ clientProfileId }: { clientProfileId?: string | null }) => {
   const [selectedPeriod, setSelectedPeriod] = useState<'1M' | '3M' | '6M' | 'ALL'>('3M');
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [dbWeeklyData, setDbWeeklyData] = useState<any[]>([]);
 
-  // 8 months of weekly workout data (Aug 2025 - Feb 2026)
-  const allWeeklyData = [
+  // Load workout data from Supabase
+  useEffect(() => {
+    const loadAnalytics = async () => {
+      if (!clientProfileId) return;
+      const { data } = await db.getClientWorkouts(clientProfileId);
+      if (data && data.length > 0) {
+        const mapped = data.map((w: any) => {
+          const d = new Date(w.date || w.created_at);
+          const exerciseMap: Record<string, number> = {};
+          (w.workout_exercises || []).forEach((we: any) => {
+            const name = we.exercises?.name || 'Unknown';
+            exerciseMap[name] = we.weight || 0;
+          });
+          return { date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }), month: d.getMonth() + 1, exercises: exerciseMap };
+        });
+        setDbWeeklyData(mapped);
+      }
+    };
+    loadAnalytics();
+  }, [clientProfileId]);
+
+  // Use DB data if available, fallback to hardcoded
+  const allWeeklyData = dbWeeklyData.length > 0 ? dbWeeklyData : [
     { date: 'Aug 4', month: 8, exercises: { 'Bench Press': 55, 'Squat': 60, 'Deadlift': 80, 'Overhead Press': 30, 'Box Squat': 50 }},
     { date: 'Aug 11', month: 8, exercises: { 'Bench Press': 57.5, 'Squat': 62.5, 'Deadlift': 85, 'Overhead Press': 30, 'Box Squat': 52.5 }},
     { date: 'Aug 18', month: 8, exercises: { 'Bench Press': 55, 'Squat': 65, 'Deadlift': 82.5, 'Overhead Press': 32.5, 'Box Squat': 50 }},
@@ -2285,7 +2307,7 @@ export default function App() {
             <Text style={styles.appTitle}>Analytics</Text>
             <View style={styles.placeholder} />
           </View>
-          <AnalyticsScreen />
+          <AnalyticsScreen clientProfileId={clientProfileId} />
         </View>
       </SafeAreaProvider>
     );
