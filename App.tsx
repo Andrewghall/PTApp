@@ -83,7 +83,7 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
 };
 
 // Booking Screen with Modern Calendar
-const BookingScreen = () => {
+const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: BookedSession[], onBookSession: (session: { date: Date, time: string, label: string, icon: string }) => void }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -120,13 +120,14 @@ const BookingScreen = () => {
     return days;
   };
   
-  // Simulate some bookings (in real app, this would come from database)
+  // Check booked sessions for slot availability
   const getBookingsForDate = (day: number) => {
-    const bookings = [];
-    if (day % 3 === 0) bookings.push('7:30-9:30');
-    if (day % 4 === 0) bookings.push('9:30-11:30');
-    if (day % 5 === 0) bookings.push('7:30-9:30', '9:30-11:30');
-    return bookings;
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    const dateToCheck = new Date(year, month, day);
+    return bookedSessions
+      .filter(s => s.date.getFullYear() === dateToCheck.getFullYear() && s.date.getMonth() === dateToCheck.getMonth() && s.date.getDate() === dateToCheck.getDate())
+      .map(s => s.time.replace(' - ', '-').replace(/ /g, ''));
   };
   
   const isSlotAvailable = (day: number, slot: string) => {
@@ -141,10 +142,20 @@ const BookingScreen = () => {
   };
   
   const confirmBooking = () => {
+    if (selectedSlot) {
+      const slot = timeSlots.find(s => s.time === selectedSlot);
+      if (slot) {
+        onBookSession({
+          date: selectedDate,
+          time: slot.time.replace('-', ' - '),
+          label: slot.label,
+          icon: slot.icon,
+        });
+      }
+    }
     setShowConfirmation(false);
     setBookingSuccess(true);
     setSelectedSlot(null);
-    // Hide success message after 3 seconds
     setTimeout(() => setBookingSuccess(false), 3000);
   };
   
@@ -1453,21 +1464,13 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
 };
 
 // Cancel Session Screen
-const CancelSessionScreen = () => {
+type BookedSession = { id: number, date: Date, time: string, label: string, icon: string };
+const CancelSessionScreen = ({ sessions, onCancelSessions }: { sessions: BookedSession[], onCancelSessions: (ids: number[]) => void }) => {
   const [selectedSessions, setSelectedSessions] = useState<number[]>([]);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
 
   const today = new Date();
-
-  const bookedSessions = [
-    { id: 1, date: new Date(2026, 1, 15), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 2, date: new Date(2026, 1, 16), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
-    { id: 3, date: new Date(2026, 1, 18), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 4, date: new Date(2026, 1, 20), time: '17:00 - 19:00', label: 'Evening Session', icon: '🌙' },
-    { id: 5, date: new Date(2026, 1, 22), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
-    { id: 6, date: new Date(2026, 1, 25), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
-  ];
 
   const getDaysUntil = (date: Date) => {
     const diff = date.getTime() - today.getTime();
@@ -1482,14 +1485,15 @@ const CancelSessionScreen = () => {
     );
   };
 
-  const selectedSessionsData = bookedSessions.filter(s => selectedSessions.includes(s.id));
+  const selectedSessionsData = sessions.filter(s => selectedSessions.includes(s.id));
   const chargedSessions = selectedSessionsData.filter(s => isWithin2Days(s.date));
   const freeCancellations = selectedSessionsData.filter(s => !isWithin2Days(s.date));
 
   const handleCancel = () => {
+    onCancelSessions(selectedSessions);
     setShowConfirmModal(false);
-    setSelectedSessions([]);
     setCancelSuccess(`${selectedSessionsData.length} session${selectedSessionsData.length > 1 ? 's' : ''} cancelled successfully.${chargedSessions.length > 0 ? ` ${chargedSessions.length} session${chargedSessions.length > 1 ? 's were' : ' was'} within 48 hours and will be charged.` : ''}`);
+    setSelectedSessions([]);
     setTimeout(() => setCancelSuccess(null), 5000);
   };
 
@@ -1507,17 +1511,26 @@ const CancelSessionScreen = () => {
           <Text style={styles.pageSubtitle}>Select sessions you want to cancel</Text>
         </View>
 
-        {/* Warning Banner */}
-        <View style={{backgroundColor: '#fef3c7', borderRadius: 12, padding: 14, margin: 16, marginBottom: 0, borderLeftWidth: 4, borderLeftColor: '#f59e0b'}}>
-          <Text style={{fontSize: 13, fontWeight: 'bold', color: '#92400e', marginBottom: 4}}>Cancellation Policy</Text>
-          <Text style={{fontSize: 12, color: '#92400e', lineHeight: 18}}>
-            Sessions cancelled more than 48 hours in advance are free.{'\n'}
-            Sessions within 48 hours will still be charged (1 credit).
-          </Text>
-        </View>
+        {sessions.length === 0 && (
+          <View style={{alignItems: 'center', padding: 40, margin: 16}}>
+            <Text style={{fontSize: 48, marginBottom: 12}}>✅</Text>
+            <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1f2937', marginBottom: 8}}>No Booked Sessions</Text>
+            <Text style={{fontSize: 14, color: '#6b7280', textAlign: 'center'}}>You don't have any upcoming sessions to cancel.</Text>
+          </View>
+        )}
+
+        {sessions.length > 0 && (
+          <View style={{backgroundColor: '#fef3c7', borderRadius: 12, padding: 14, margin: 16, marginBottom: 0, borderLeftWidth: 4, borderLeftColor: '#f59e0b'}}>
+            <Text style={{fontSize: 13, fontWeight: 'bold', color: '#92400e', marginBottom: 4}}>Cancellation Policy</Text>
+            <Text style={{fontSize: 12, color: '#92400e', lineHeight: 18}}>
+              Sessions cancelled more than 48 hours in advance are free.{'\n'}
+              Sessions within 48 hours will still be charged (1 credit).
+            </Text>
+          </View>
+        )}
 
         {/* Session List */}
-        {bookedSessions.map((session) => {
+        {sessions.map((session) => {
           const daysUntil = getDaysUntil(session.date);
           const within2 = isWithin2Days(session.date);
           const isSelected = selectedSessions.includes(session.id);
@@ -1944,6 +1957,25 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'login' | 'dashboard' | 'credits' | 'booking' | 'sessions' | 'workout' | 'profile' | 'analytics' | 'cancelSession'>('login');
   const [selectedWorkoutDate, setSelectedWorkoutDate] = useState<Date | null>(null);
   
+  // Shared booked sessions state
+  const [bookedSessions, setBookedSessions] = useState([
+    { id: 1, date: new Date(2026, 1, 15), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 2, date: new Date(2026, 1, 16), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
+    { id: 3, date: new Date(2026, 1, 18), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 4, date: new Date(2026, 1, 20), time: '17:00 - 19:00', label: 'Evening Session', icon: '🌙' },
+    { id: 5, date: new Date(2026, 1, 22), time: '7:30 - 9:30', label: 'Morning Session', icon: '🌅' },
+    { id: 6, date: new Date(2026, 1, 25), time: '12:00 - 14:00', label: 'Afternoon Session', icon: '☀️' },
+  ]);
+
+  const cancelSessions = (ids: number[]) => {
+    setBookedSessions(prev => prev.filter(s => !ids.includes(s.id)));
+  };
+
+  const addBookedSession = (session: { date: Date, time: string, label: string, icon: string }) => {
+    const newId = bookedSessions.length > 0 ? Math.max(...bookedSessions.map(s => s.id)) + 1 : 1;
+    setBookedSessions(prev => [...prev, { id: newId, ...session }]);
+  };
+
   // User profile data
   const [userProfile, setUserProfile] = useState({
     name: 'John Doe',
@@ -1991,7 +2023,7 @@ export default function App() {
             <Text style={styles.appTitle}>Book Session</Text>
             <View style={styles.placeholder} />
           </View>
-          <BookingScreen />
+          <BookingScreen bookedSessions={bookedSessions} onBookSession={addBookedSession} />
         </View>
       </SafeAreaProvider>
     );
@@ -2082,7 +2114,7 @@ export default function App() {
             <Text style={styles.appTitle}>Cancel Session</Text>
             <View style={styles.placeholder} />
           </View>
-          <CancelSessionScreen />
+          <CancelSessionScreen sessions={bookedSessions} onCancelSessions={cancelSessions} />
         </View>
       </SafeAreaProvider>
     );
