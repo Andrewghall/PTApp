@@ -931,13 +931,29 @@ const CreditsScreen = ({ clientProfileId, onRefresh }: { clientProfileId: string
   );
 };
 
-const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male' }: { selectedDate?: Date, userGender?: string }) => {
+const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male', clientProfileId }: { selectedDate?: Date, userGender?: string, clientProfileId?: string | null }) => {
   const [selectedWeek, setSelectedWeek] = useState(selectedDate || new Date());
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState(null);
   const [editingExercise, setEditingExercise] = useState<any>(null);
   const [showExerciseDetails, setShowExerciseDetails] = useState(false);
-  
+  const [dbExercises, setDbExercises] = useState<any[]>([]);
+  const [dbPreviousWorkouts, setDbPreviousWorkouts] = useState<any[]>([]);
+
+  // Load exercises and previous workouts from Supabase
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: exData } = await db.getExercises();
+      if (exData && exData.length > 0) setDbExercises(exData);
+
+      if (clientProfileId) {
+        const { data: wkData } = await db.getClientWorkouts(clientProfileId);
+        if (wkData) setDbPreviousWorkouts(wkData);
+      }
+    };
+    loadData();
+  }, [clientProfileId]);
+
   // Static imports for images - this works in React Native
   const maleImages = {
     BenchPress: require('./MaleBenchPress.png'),
@@ -979,57 +995,52 @@ const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male' }: { sel
     return { uri: `https://via.placeholder.com/50x50/${color}/ffffff?text=${initials}` };
   };
   
-  const exercises = [
-    { 
-      id: 1, 
-      name: 'Bench Press', 
-      category: 'Chest', 
-      imageKey: 'BenchPress'
-    },
-    { 
-      id: 2, 
-      name: 'Squats', 
-      category: 'Legs', 
-      imageKey: 'Squats'
-    },
-    { 
-      id: 3, 
-      name: 'Box Squats', 
-      category: 'Legs', 
-      imageKey: 'BoxSquat'
-    },
-    { 
-      id: 4, 
-      name: 'Deadlift', 
-      category: 'Back', 
-      imageKey: 'DeadLift'
-    },
-    { 
-      id: 5, 
-      name: 'Overhead Press', 
-      category: 'Shoulders', 
-      imageKey: 'OverheadPress'
-    },
+  // Use DB exercises if available, fallback to hardcoded
+  const fallbackExercises = [
+    { id: 'fb-1', name: 'Bench Press', category: 'Chest', imageKey: 'BenchPress' },
+    { id: 'fb-2', name: 'Squats', category: 'Legs', imageKey: 'Squats' },
+    { id: 'fb-3', name: 'Box Squats', category: 'Legs', imageKey: 'BoxSquat' },
+    { id: 'fb-4', name: 'Deadlift', category: 'Back', imageKey: 'DeadLift' },
+    { id: 'fb-5', name: 'Overhead Press', category: 'Shoulders', imageKey: 'OverheadPress' },
   ];
-  
-  const previousWorkouts = [
-    {
-      week: 'Jan 29 - Feb 4',
-      exercises: [
-        { id: 1, name: 'Bench Press', sets: '5x5', weight: '80kg', type: 'normal', notes: 'Felt strong' },
-        { id: 2, name: 'Squat', sets: '5x5', weight: '100kg', type: 'normal', notes: 'Good depth' },
-        { id: 3, name: 'Deadlift', sets: '1x1', weight: '140kg', type: 'max', notes: 'PR!' },
-      ]
-    },
-    {
-      week: 'Jan 22 - Jan 28',
-      exercises: [
-        { id: 4, name: 'Bench Press', sets: '3x8', weight: '70kg', type: 'light', notes: 'Recovery week' },
-        { id: 5, name: 'Squat', sets: '3x8', weight: '85kg', type: 'light', notes: 'Focus on form' },
-        { id: 6, name: 'Overhead Press', sets: '5x5', weight: '50kg', type: 'normal', notes: 'Steady progress' },
-      ]
-    },
-  ];
+  const exercises = dbExercises.length > 0
+    ? dbExercises.map((e: any) => ({
+        id: e.id,
+        name: e.name,
+        category: e.muscle_group || e.category || 'General',
+        imageKey: e.name.replace(/\s+/g, ''),
+      }))
+    : fallbackExercises;
+
+  // Map DB workouts to display format, fallback to hardcoded
+  const previousWorkouts = dbPreviousWorkouts.length > 0
+    ? dbPreviousWorkouts.map((w: any) => {
+        const d = new Date(w.date || w.created_at);
+        const weekEnd = new Date(d); weekEnd.setDate(d.getDate() + 6);
+        return {
+          week: `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`,
+          exercises: (w.workout_exercises || []).map((we: any) => ({
+            id: we.id,
+            name: we.exercises?.name || 'Exercise',
+            sets: we.sets ? `${we.sets}x${we.reps || '?'}` : '3x10',
+            weight: we.weight ? `${we.weight}kg` : '-',
+            type: we.type || 'normal',
+            notes: we.notes || '',
+          })),
+        };
+      })
+    : [
+        { week: 'Jan 29 - Feb 4', exercises: [
+          { id: 1, name: 'Bench Press', sets: '5x5', weight: '80kg', type: 'normal', notes: 'Felt strong' },
+          { id: 2, name: 'Squat', sets: '5x5', weight: '100kg', type: 'normal', notes: 'Good depth' },
+          { id: 3, name: 'Deadlift', sets: '1x1', weight: '140kg', type: 'max', notes: 'PR!' },
+        ]},
+        { week: 'Jan 22 - Jan 28', exercises: [
+          { id: 4, name: 'Bench Press', sets: '3x8', weight: '70kg', type: 'light', notes: 'Recovery week' },
+          { id: 5, name: 'Squat', sets: '3x8', weight: '85kg', type: 'light', notes: 'Focus on form' },
+          { id: 6, name: 'Overhead Press', sets: '5x5', weight: '50kg', type: 'normal', notes: 'Steady progress' },
+        ]},
+      ];
   
   const [currentWeekWorkout, setCurrentWeekWorkout] = useState<any[]>([]);
 
@@ -1040,7 +1051,7 @@ const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male' }: { sel
     type: 'normal' // normal, light, heavy, max
   });
 
-  const addExerciseToWorkout = (exercise: {id: number, name: string, category: string}) => {
+  const addExerciseToWorkout = (exercise: {id: any, name: string, category: string}) => {
     const workoutExercise = {
       id: Date.now(),
       name: exercise.name,
@@ -1160,7 +1171,7 @@ const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male' }: { sel
           {previousWorkouts.map((week, weekIndex) => (
             <View key={weekIndex} style={styles.weekCard}>
               <Text style={styles.weekDate}>{week.week}</Text>
-              {week.exercises.map((exercise) => (
+              {week.exercises.map((exercise: any) => (
                 <View key={exercise.id} style={styles.previousExercise}>
                   <Text style={styles.previousExerciseName}>{exercise.name}</Text>
                   <Text style={styles.previousExerciseDetails}>{exercise.sets} • {exercise.weight}</Text>
@@ -2240,7 +2251,7 @@ export default function App() {
             <Text style={styles.appTitle}>Workout Tracker</Text>
             <View style={styles.placeholder} />
           </View>
-          <WorkoutScreen selectedDate={selectedWorkoutDate || undefined} userGender={userProfile?.gender || 'male'} />
+          <WorkoutScreen selectedDate={selectedWorkoutDate || undefined} userGender={userProfile?.gender || 'male'} clientProfileId={clientProfileId} />
         </View>
       </SafeAreaProvider>
     );
