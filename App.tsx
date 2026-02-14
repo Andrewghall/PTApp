@@ -476,83 +476,66 @@ const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: any[
   );
 };
 
-// Sessions Management Screen
-const SessionsScreen = ({ onWorkout, onBuyCredits }: { onWorkout: (date: Date) => void, onBuyCredits: () => void }) => {
+// Sessions Management Screen — real Supabase data
+const SessionsScreen = ({ onWorkout, onBuyCredits, clientProfileId, creditBalance, bookedSessions }: { 
+  onWorkout: (date: Date) => void, 
+  onBuyCredits: () => void,
+  clientProfileId: string | null,
+  creditBalance: number,
+  bookedSessions: any[]
+}) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
-  
-  // Mock data for booked sessions
-  const upcomingSessions = [
-    {
-      id: 1,
-      date: new Date(2026, 1, 15), // Feb 15, 2026
-      time: '7:30-9:30',
-      label: 'Morning Session',
-      icon: '🌅',
+  const [pastBookings, setPastBookings] = useState<any[]>([]);
+
+  // Load past (completed/cancelled) bookings from Supabase
+  useEffect(() => {
+    const loadPast = async () => {
+      if (!clientProfileId) return;
+      const { data } = await db.getClientBookings(clientProfileId);
+      if (data) {
+        const past = data
+          .filter((b: any) => b.status === 'completed' || (b.status === 'booked' && new Date(b.slots.start_time) < new Date()))
+          .map((b: any) => {
+            const start = new Date(b.slots.start_time);
+            const end = new Date(b.slots.end_time);
+            const h = start.getHours();
+            return {
+              id: b.id,
+              date: start,
+              time: `${h}:${start.getMinutes().toString().padStart(2,'0')}-${end.getHours()}:${end.getMinutes().toString().padStart(2,'0')}`,
+              label: h < 10 ? 'Morning Session' : 'Late Morning',
+              icon: h < 10 ? '🌅' : '☀️',
+              status: 'completed',
+              creditStatus: 'ok',
+              creditsUsed: 1,
+              trainer: 'Pedro',
+              location: b.slots.location || 'Elevate Gym',
+            };
+          });
+        setPastBookings(past);
+      }
+    };
+    loadPast();
+  }, [clientProfileId]);
+
+  // Map bookedSessions (upcoming) to session format
+  const now = new Date();
+  const upcomingSessions = bookedSessions
+    .filter((s: any) => s.date > now)
+    .sort((a: any, b: any) => a.date.getTime() - b.date.getTime())
+    .map((s: any) => ({
+      ...s,
       status: 'confirmed',
-      creditStatus: 'ok', // ok, warning, critical
+      creditStatus: creditBalance > 2 ? 'ok' : creditBalance > 0 ? 'warning' : 'critical',
       creditsUsed: 1,
       trainer: 'Pedro',
-      location: 'Gym A'
-    },
-    {
-      id: 2,
-      date: new Date(2026, 1, 17), // Feb 17, 2026
-      time: '9:30-11:30',
-      label: 'Late Morning',
-      icon: '☀️',
-      status: 'confirmed',
-      creditStatus: 'warning',
-      creditsUsed: 1,
-      trainer: 'Pedro',
-      location: 'Gym B'
-    },
-    {
-      id: 3,
-      date: new Date(2026, 1, 20), // Feb 20, 2026
-      time: '7:30-9:30',
-      label: 'Morning Session',
-      icon: '🌅',
-      status: 'pending',
-      creditStatus: 'critical',
-      creditsUsed: 1,
-      trainer: 'Pedro',
-      location: 'Gym A'
-    }
-  ];
-  
-  const pastSessions = [
-    {
-      id: 4,
-      date: new Date(2026, 1, 8), // Feb 8, 2026
-      time: '7:30-9:30',
-      label: 'Morning Session',
-      icon: '🌅',
-      status: 'completed',
-      creditStatus: 'ok',
-      creditsUsed: 1,
-      trainer: 'Pedro',
-      location: 'Gym A',
-      rating: 5
-    },
-    {
-      id: 5,
-      date: new Date(2026, 1, 6), // Feb 6, 2026
-      time: '9:30-11:30',
-      label: 'Late Morning',
-      icon: '☀️',
-      status: 'completed',
-      creditStatus: 'ok',
-      creditsUsed: 1,
-      trainer: 'Pedro',
-      location: 'Gym B',
-      rating: 4
-    }
-  ];
+      location: 'Elevate Gym',
+    }));
+
+  const pastSessions = pastBookings;
   
   const currentSessions = activeTab === 'upcoming' ? upcomingSessions : pastSessions;
-  const totalCredits = 8;
-  const usedCredits = upcomingSessions.length + pastSessions.length;
-  const availableCredits = totalCredits - usedCredits;
+  const availableCredits = creditBalance;
   
   const getCreditStatusColor = (status: string) => {
     switch (status) {
@@ -615,14 +598,6 @@ const SessionsScreen = ({ onWorkout, onBuyCredits }: { onWorkout: (date: Date) =
           </TouchableOpacity>
         </View>
         <View style={styles.creditsStats}>
-          <View style={styles.creditStat}>
-            <Text style={styles.creditNumber}>{totalCredits}</Text>
-            <Text style={styles.creditLabel}>Total Credits</Text>
-          </View>
-          <View style={styles.creditStat}>
-            <Text style={styles.creditNumber}>{usedCredits}</Text>
-            <Text style={styles.creditLabel}>Used</Text>
-          </View>
           <View style={[
             styles.creditStat,
             availableCredits <= 2 && styles.warningStat,
@@ -635,7 +610,15 @@ const SessionsScreen = ({ onWorkout, onBuyCredits }: { onWorkout: (date: Date) =
             ]}>
               {availableCredits}
             </Text>
-            <Text style={styles.creditLabel}>Available</Text>
+            <Text style={styles.creditLabel}>Credits Available</Text>
+          </View>
+          <View style={styles.creditStat}>
+            <Text style={styles.creditNumber}>{upcomingSessions.length}</Text>
+            <Text style={styles.creditLabel}>Upcoming</Text>
+          </View>
+          <View style={styles.creditStat}>
+            <Text style={styles.creditNumber}>{pastSessions.length}</Text>
+            <Text style={styles.creditLabel}>Completed</Text>
           </View>
         </View>
         {availableCredits <= 2 && (
@@ -2237,6 +2220,9 @@ export default function App() {
               setSelectedWorkoutDate(date);
               setCurrentScreen('workout');
             }}
+            clientProfileId={clientProfileId}
+            creditBalance={creditBalance}
+            bookedSessions={bookedSessions}
           />
         </View>
       </SafeAreaProvider>
