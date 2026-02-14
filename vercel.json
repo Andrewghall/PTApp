@@ -1,5 +1,7 @@
 {
   "version": 2,
+  "buildCommand": "npx expo export --platform web",
+  "outputDirectory": "dist",
   "builds": [
     {
       "src": "dist/**/*",
@@ -11,6 +13,5 @@
       "src": "/(.*)",
       "dest": "/dist/$1"
     }
-  ],
-  "outputDirectory": "dist"
+  ]
 }
