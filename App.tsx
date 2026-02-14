@@ -398,7 +398,7 @@ const BookingScreen = () => {
 };
 
 // Sessions Management Screen
-const SessionsScreen = ({ onWorkout }: { onWorkout: (date: Date) => void }) => {
+const SessionsScreen = ({ onWorkout, onBuyCredits }: { onWorkout: (date: Date) => void, onBuyCredits: () => void }) => {
   const [activeTab, setActiveTab] = useState<'upcoming' | 'past'>('upcoming');
   
   // Mock data for booked sessions
@@ -531,7 +531,7 @@ const SessionsScreen = ({ onWorkout }: { onWorkout: (date: Date) => void }) => {
       <View style={styles.creditsOverviewCard}>
         <View style={styles.creditsHeader}>
           <Text style={styles.creditsTitle}>Credits Overview</Text>
-          <TouchableOpacity style={styles.buyCreditsButton}>
+          <TouchableOpacity style={styles.buyCreditsButton} onPress={onBuyCredits}>
             <Text style={styles.buyCreditsText}>Buy More</Text>
           </TouchableOpacity>
         </View>
@@ -1790,6 +1790,7 @@ export default function App() {
             <View style={styles.placeholder} />
           </View>
           <SessionsScreen 
+            onBuyCredits={() => setCurrentScreen('credits')}
             onWorkout={(date) => {
               setSelectedWorkoutDate(date);
               setCurrentScreen('workout');
