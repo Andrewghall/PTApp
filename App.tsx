@@ -36,7 +36,14 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
     } else {
       const { error } = await auth.signIn(email, password);
       setLoading(false);
-      if (error) { setErrorMsg(error.message); return; }
+      if (error) {
+        if (error.message?.toLowerCase().includes('email not confirmed')) {
+          setErrorMsg('Email not confirmed yet. Check your inbox for the confirmation link, or ask your admin to confirm your account.');
+        } else {
+          setErrorMsg(error.message);
+        }
+        return;
+      }
       onLogin();
     }
   };
