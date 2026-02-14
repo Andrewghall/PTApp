@@ -153,7 +153,7 @@ const LoginScreen = ({ onLogin }: { onLogin: () => void }) => {
 };
 
 // Booking Screen with Modern Calendar — real Supabase slots
-const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: any[], onBookSession: (slotId: string) => Promise<void> }) => {
+const BookingScreen = ({ bookedSessions, onBookSession, creditBalance }: { bookedSessions: any[], onBookSession: (slotId: string) => Promise<void>, creditBalance: number }) => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(null);
@@ -226,6 +226,8 @@ const BookingScreen = ({ bookedSessions, onBookSession }: { bookedSessions: any[
   const isSlotAvailable = (day: number, slot: string) => {
     const bookings = getBookingsForDate(day);
     if (bookings.includes(slot)) return false;
+    // Check if user has credits
+    if (creditBalance <= 0) return false;
     // Also check DB slot capacity
     const dbSlot = findDbSlot(day, slot);
     if (!dbSlot) return false; // No slot in DB = not available
@@ -2338,7 +2340,7 @@ export default function App() {
             <Text style={styles.appTitle}>Book Session</Text>
             <View style={styles.placeholder} />
           </View>
-          <BookingScreen bookedSessions={bookedSessions} onBookSession={addBookedSession} />
+          <BookingScreen bookedSessions={bookedSessions} onBookSession={addBookedSession} creditBalance={creditBalance} />
         </View>
       </SafeAreaProvider>
     );
