@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityIndicator, View } from 'react-native';
 
-import { auth, supabase } from './src/lib/supabase';
+import { auth, supabase, db } from './src/lib/supabase';
 import LoginScreen from './src/screens/LoginScreen';
 import DashboardScreen from './src/screens/DashboardScreen';
 import BookingScreen from './src/screens/BookingScreen';
@@ -14,6 +14,9 @@ import WorkoutScreen from './src/screens/WorkoutScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import CreditsScreen from './src/screens/CreditsScreen';
+import MessagingScreen from './src/screens/MessagingScreen';
+import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
+import ReferralsScreen from './src/screens/ReferralsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -34,6 +37,7 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
     // Check for existing session
@@ -56,6 +60,29 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!session) return;
+
+    // Subscribe to new messages for real-time unread count updates
+    const messageSubscription = supabase
+      .channel('messages-unread')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
+        if (payload.new.recipient_id === session.user.id) {
+          loadUnreadCount(session.user.id);
+        }
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
+        if (payload.new.recipient_id === session.user.id) {
+          loadUnreadCount(session.user.id);
+        }
+      })
+      .subscribe();
+
+    return () => {
+      messageSubscription.unsubscribe();
+    };
+  }, [session]);
+
   const loadUserRole = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
@@ -65,6 +92,14 @@ export default function App() {
     if (data?.role) {
       setUserRole(data.role);
     }
+
+    // Load unread message count
+    loadUnreadCount(userId);
+  };
+
+  const loadUnreadCount = async (userId: string) => {
+    const { count } = await db.getUnreadCount(userId);
+    setUnreadCount(count || 0);
   };
 
   const handleLogout = async () => {
@@ -96,6 +131,9 @@ export default function App() {
                 let iconName: any;
                 if (route.name === 'Dashboard') iconName = focused ? 'home' : 'home-outline';
                 else if (route.name === 'Book') iconName = focused ? 'calendar' : 'calendar-outline';
+                else if (route.name === 'Messages') iconName = focused ? 'mail' : 'mail-outline';
+                else if (route.name === 'History') iconName = focused ? 'time' : 'time-outline';
+                else if (route.name === 'Refer') iconName = focused ? 'gift' : 'gift-outline';
                 else if (route.name === 'Workout') iconName = focused ? 'barbell' : 'barbell-outline';
                 else if (route.name === 'Analytics') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
                 else if (route.name === 'Admin') iconName = focused ? 'settings' : 'settings-outline';
@@ -110,6 +148,15 @@ export default function App() {
               {() => <DashboardStack onLogout={handleLogout} userId={session.user.id} />}
             </Tab.Screen>
             <Tab.Screen name="Book" component={BookingScreen} />
+            <Tab.Screen
+              name="Messages"
+              component={MessagingScreen}
+              options={{
+                tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
+              }}
+            />
+            <Tab.Screen name="History" component={SessionHistoryScreen} />
+            <Tab.Screen name="Refer" component={ReferralsScreen} />
             <Tab.Screen name="Workout" component={WorkoutScreen} />
             <Tab.Screen name="Analytics" component={AnalyticsScreen} />
             {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminScreen} />}

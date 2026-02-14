@@ -7,7 +7,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // ── Auth helpers ──────────────────────────────────────────
 export const auth = {
-  signUp: async (email: string, password: string, firstName: string, lastName: string) => {
+  signUp: async (
+    email: string,
+    password: string,
+    firstName: string,
+    lastName: string,
+    phone: string,
+    dateOfBirth: string,
+    gender?: string,
+    referralCode?: string
+  ) => {
     // Create auth user with metadata — the DB trigger (SECURITY DEFINER)
     // handles creating profiles, client_profiles, and credit_balances rows
     const redirectUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:8081';
@@ -15,7 +24,14 @@ export const auth = {
       email,
       password,
       options: {
-        data: { first_name: firstName, last_name: lastName },
+        data: {
+          first_name: firstName,
+          last_name: lastName,
+          phone,
+          date_of_birth: dateOfBirth,
+          gender: gender || null,
+          referral_code: referralCode || null,
+        },
         emailRedirectTo: redirectUrl,
       },
     });
@@ -284,6 +300,360 @@ export const db = {
       .select()
       .single();
     return { data, error };
+  },
+
+  // ── MESSAGING ──
+  getMessages: async (userId: string, recipientId?: string) => {
+    let query = supabase
+      .from('messages')
+      .select(`
+        *,
+        sender:sender_id(id, first_name, last_name, role),
+        recipient:recipient_id(id, first_name, last_name, role)
+      `)
+      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
+      .order('created_at', { ascending: false });
+
+    if (recipientId) {
+      query = query.or(`and(sender_id.eq.${userId},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${userId})`);
+    }
+
+    return await query;
+  },
+
+  sendMessage: async (senderId: string, recipientId: string, content: string) => {
+    return await supabase
+      .from('messages')
+      .insert([{ sender_id: senderId, recipient_id: recipientId, content }])
+      .select()
+      .single();
+  },
+
+  markMessageAsRead: async (messageId: string) => {
+    return await supabase
+      .from('messages')
+      .update({ read: true, read_at: new Date().toISOString() })
+      .eq('id', messageId);
+  },
+
+  getUnreadCount: async (userId: string) => {
+    const { count } = await supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', userId)
+      .eq('read', false);
+    return { count };
+  },
+
+  // ── SESSION NOTES ──
+  getSessionNote: async (bookingId: string) => {
+    return await supabase
+      .from('session_notes')
+      .select('*')
+      .eq('booking_id', bookingId)
+      .single();
+  },
+
+  createSessionNote: async (bookingId: string, ptNotes: string, rating?: number, focus?: string) => {
+    return await supabase
+      .from('session_notes')
+      .insert([{
+        booking_id: bookingId,
+        pt_notes: ptNotes,
+        performance_rating: rating,
+        next_session_focus: focus
+      }])
+      .select()
+      .single();
+  },
+
+  updateSessionNote: async (noteId: string, updates: any) => {
+    return await supabase
+      .from('session_notes')
+      .update(updates)
+      .eq('id', noteId)
+      .select()
+      .single();
+  },
+
+  // ── WAITLIST ──
+  joinWaitlist: async (slotId: string, clientId: string) => {
+    // Get next position
+    const { data: waitlist } = await supabase
+      .from('waitlist')
+      .select('position')
+      .eq('slot_id', slotId)
+      .order('position', { ascending: false })
+      .limit(1);
+
+    const nextPosition = waitlist && waitlist.length > 0 ? waitlist[0].position + 1 : 1;
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+    return await supabase
+      .from('waitlist')
+      .insert([{
+        slot_id: slotId,
+        client_id: clientId,
+        position: nextPosition,
+        expires_at: expiresAt.toISOString()
+      }])
+      .select()
+      .single();
+  },
+
+  getWaitlistPosition: async (slotId: string, clientId: string) => {
+    return await supabase
+      .from('waitlist')
+      .select('*')
+      .eq('slot_id', slotId)
+      .eq('client_id', clientId)
+      .single();
+  },
+
+  getWaitlistForSlot: async (slotId: string) => {
+    return await supabase
+      .from('waitlist')
+      .select(`
+        *,
+        client:client_id(first_name, last_name, phone)
+      `)
+      .eq('slot_id', slotId)
+      .order('position', { ascending: true });
+  },
+
+  removeFromWaitlist: async (waitlistId: string) => {
+    return await supabase
+      .from('waitlist')
+      .delete()
+      .eq('id', waitlistId);
+  },
+
+  // ── REFERRALS ──
+  createReferralCode: async (referrerId: string) => {
+    const code = `PT${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+    return await supabase
+      .from('referrals')
+      .insert([{
+        referrer_id: referrerId,
+        referral_code: code,
+        status: 'pending'
+      }])
+      .select()
+      .single();
+  },
+
+  getReferralByCode: async (code: string) => {
+    return await supabase
+      .from('referrals')
+      .select('*')
+      .eq('referral_code', code)
+      .single();
+  },
+
+  getReferralStats: async (userId: string) => {
+    const { data: referrals } = await supabase
+      .from('referrals')
+      .select('*')
+      .eq('referrer_id', userId);
+
+    const pending = referrals?.filter(r => r.status === 'pending').length || 0;
+    const completed = referrals?.filter(r => r.status === 'completed').length || 0;
+    const totalEarned = completed * 25; // £25 per referral
+
+    return { data: { pending, completed, totalEarned, referrals }, error: null };
+  },
+
+  awardReferralCredit: async (referralId: string, referrerId: string, referredId: string) => {
+    // Award credit to both parties
+    await db.addCredits(referrerId, 1, 'Referral reward');
+    await db.addCredits(referredId, 1, 'Welcome referral bonus');
+
+    // Mark referral as credited
+    return await supabase
+      .from('referrals')
+      .update({ status: 'completed', credited: true })
+      .eq('id', referralId);
+  },
+
+  // ── ADMIN - SLOT MANAGEMENT ──
+  updateSlot: async (slotId: string, updates: any) => {
+    return await supabase
+      .from('slots')
+      .update(updates)
+      .eq('id', slotId)
+      .select()
+      .single();
+  },
+
+  deleteSlot: async (slotId: string) => {
+    // Get affected bookings first
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('*, client_profiles(*), slots(*)')
+      .eq('slot_id', slotId)
+      .eq('status', 'booked');
+
+    // Create notifications for affected clients
+    if (bookings && bookings.length > 0) {
+      const notifications = bookings.map((booking: any) => ({
+        slot_id: slotId,
+        booking_id: booking.id,
+        notification_type: 'slot_deleted',
+        old_start_time: booking.slots.start_time,
+        message: `Your session on ${new Date(booking.slots.start_time).toLocaleString()} has been cancelled by your PT. Your session credit has been refunded.`
+      }));
+
+      await supabase.from('slot_notifications').insert(notifications);
+
+      // Refund credits to all affected clients
+      for (const booking of bookings) {
+        const startDate = new Date(booking.slots.start_time);
+        const dateStr = startDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+        await db.refundCredit(booking.client_id, `Refund for cancelled session on ${dateStr}`);
+      }
+    }
+
+    // Delete the slot (cascades to bookings)
+    return await supabase
+      .from('slots')
+      .delete()
+      .eq('id', slotId);
+  },
+
+  rescheduleSlot: async (slotId: string, newStartTime: string, newEndTime: string) => {
+    // Get old slot data and bookings
+    const { data: slot } = await supabase
+      .from('slots')
+      .select('*, bookings(*, client_profiles(*))')
+      .eq('id', slotId)
+      .single();
+
+    if (!slot) throw new Error('Slot not found');
+
+    // Create notifications
+    if (slot.bookings && slot.bookings.length > 0) {
+      const notifications = slot.bookings.map((booking: any) => ({
+        slot_id: slotId,
+        booking_id: booking.id,
+        notification_type: 'slot_rescheduled',
+        old_start_time: slot.start_time,
+        new_start_time: newStartTime,
+        message: `Your session has been rescheduled from ${new Date(slot.start_time).toLocaleString()} to ${new Date(newStartTime).toLocaleString()}`
+      }));
+
+      await supabase.from('slot_notifications').insert(notifications);
+    }
+
+    // Update slot
+    return await supabase
+      .from('slots')
+      .update({ start_time: newStartTime, end_time: newEndTime })
+      .eq('id', slotId)
+      .select()
+      .single();
+  },
+
+  // ── ADMIN - WORKOUT MANAGEMENT ──
+  updateClientWorkoutSet: async (setId: string, weight?: number, reps?: number, notes?: string) => {
+    const updates: any = {};
+    if (weight !== undefined) updates.weight = weight;
+    if (reps !== undefined) updates.reps = reps;
+    if (notes !== undefined) updates.notes = notes;
+
+    return await supabase
+      .from('set_entries')
+      .update(updates)
+      .eq('id', setId)
+      .select()
+      .single();
+  },
+
+  // ── ADMIN - ANALYTICS ──
+  getBusinessMetrics: async () => {
+    // Total active clients
+    const { count: totalClients } = await supabase
+      .from('client_profiles')
+      .select('*', { count: 'exact', head: true });
+
+    // Gender split
+    const { data: genderData } = await supabase
+      .from('client_profiles')
+      .select('gender');
+
+    const genderSplit = {
+      male: genderData?.filter(c => c.gender === 'male').length || 0,
+      female: genderData?.filter(c => c.gender === 'female').length || 0,
+      other: genderData?.filter(c => c.gender === 'other' || c.gender === 'prefer_not_to_say').length || 0
+    };
+
+    // Revenue (last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: transactions } = await supabase
+      .from('credit_transactions')
+      .select('amount, description')
+      .gte('created_at', thirtyDaysAgo)
+      .ilike('description', '%Purchased%');
+
+    const monthlyRevenue = transactions?.reduce((sum, t) => {
+      const match = t.description.match(/£(\d+)/);
+      return sum + (match ? parseInt(match[1]) : 0);
+    }, 0) || 0;
+
+    // Attendance rate
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('attended, status')
+      .eq('status', 'booked')
+      .not('attended', 'is', null);
+
+    const attended = bookings?.filter(b => b.attended === true).length || 0;
+    const total = bookings?.length || 1;
+    const attendanceRate = Math.round((attended / total) * 100);
+
+    return {
+      data: {
+        totalClients,
+        genderSplit,
+        monthlyRevenue,
+        attendanceRate
+      },
+      error: null
+    };
+  },
+
+  getClientPerformance: async (clientId: string) => {
+    const { data: workouts } = await supabase
+      .from('workouts')
+      .select(`
+        *,
+        workout_exercises(
+          *,
+          exercises(name, category),
+          set_entries(weight, reps)
+        )
+      `)
+      .eq('client_id', clientId)
+      .order('date', { ascending: false });
+
+    const { data: bookings } = await supabase
+      .from('bookings')
+      .select('*, slots(*)')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+
+    const attendanceRate = bookings ?
+      Math.round((bookings.filter(b => b.attended === true).length / bookings.length) * 100) : 0;
+
+    return {
+      data: {
+        workouts,
+        bookings,
+        attendanceRate,
+        totalWorkouts: workouts?.length || 0,
+        totalBookings: bookings?.length || 0
+      },
+      error: null
+    };
   },
 };
 

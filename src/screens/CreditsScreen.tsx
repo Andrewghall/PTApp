@@ -16,7 +16,11 @@ import { db, auth } from '../lib/supabase';
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
 
-const CreditsScreen: React.FC = () => {
+interface CreditsScreenProps {
+  navigation: any;
+}
+
+const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [creditPacks, setCreditPacks] = useState<any[]>([]);
   const [clientId, setClientId] = useState<string | null>(null);
@@ -99,6 +103,17 @@ const CreditsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
@@ -190,7 +205,7 @@ const CreditsScreen: React.FC = () => {
                 • 1 session = £25{'\n'}
                 • Sessions never expire{'\n'}
                 • Book anytime{'\n'}
-                • Full refund if cancelled in advance
+                • Cancel up to 48 hours before for full refund
               </Text>
             </View>
           </View>
@@ -225,6 +240,23 @@ const styles = StyleSheet.create({
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  backButtonContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,

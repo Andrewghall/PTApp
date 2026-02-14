@@ -18,7 +18,11 @@ import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
 
-const BookingScreen: React.FC = () => {
+interface BookingScreenProps {
+  navigation: any;
+}
+
+const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [currentWeek, setCurrentWeek] = useState(new Date());
   const [slots, setSlots] = useState<any[]>([]);
@@ -101,30 +105,61 @@ const BookingScreen: React.FC = () => {
   const handleCancelBooking = async (booking: any) => {
     if (!clientId) return;
 
-    Alert.alert(
-      'Cancel Booking',
-      'Are you sure you want to cancel this booking? Your credit will be refunded.',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await db.cancelBooking(booking.id, booking.slot_id);
-              await db.refundCredit(
-                clientId,
-                `Refund for cancelled booking on ${format(parseISO(booking.slots.start_time), 'MMM d')}`
-              );
-              Alert.alert('Success', 'Booking cancelled and credit refunded');
-              loadUserAndData();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to cancel booking');
-            }
+    // Calculate hours until session
+    const sessionTime = new Date(booking.slots.start_time);
+    const now = new Date();
+    const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilSession < 48) {
+      // Less than 48 hours - no refund
+      Alert.alert(
+        'Late Cancellation',
+        'Cancellations less than 48 hours before the session will forfeit your session. You will not receive a refund. Continue?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await db.cancelBooking(booking.id, booking.slot_id);
+                // No refund - client loses the session
+                Alert.alert('Cancelled', 'Session cancelled. No refund issued due to late cancellation.');
+                loadUserAndData();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel booking');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    } else {
+      // More than 48 hours - full refund
+      Alert.alert(
+        'Cancel Booking',
+        'Are you sure you want to cancel this booking? Your session will be refunded.',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await db.cancelBooking(booking.id, booking.slot_id);
+                await db.refundCredit(
+                  clientId,
+                  `Refund for cancelled booking on ${format(parseISO(booking.slots.start_time), 'MMM d')}`
+                );
+                Alert.alert('Success', 'Booking cancelled and session refunded');
+                loadUserAndData();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel booking');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   const getWeekDays = () => {
@@ -156,6 +191,17 @@ const BookingScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Header */}
       <View style={styles.header}>
@@ -305,6 +351,9 @@ const BookingScreen: React.FC = () => {
                   {selectedSlot.location || 'Elevate Gym'}
                 </Text>
                 <Text style={styles.modalCost}>Cost: 1 session</Text>
+                <Text style={styles.modalPolicy}>
+                  Cancel up to 48 hours before for full refund
+                </Text>
               </>
             )}
             <View style={styles.modalButtons}>
@@ -344,6 +393,23 @@ const styles = StyleSheet.create({
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  backButtonContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   loadingContainer: {
     flex: 1,
@@ -578,7 +644,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#3b82f6',
     textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalPolicy: {
+    fontSize: 12,
+    color: '#6b7280',
+    textAlign: 'center',
     marginBottom: 24,
+    fontStyle: 'italic',
   },
   modalButtons: {
     flexDirection: 'row',

@@ -19,7 +19,11 @@ const logoBanner = require('../../logo banner.png');
 
 type TimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
 
-const AnalyticsScreen: React.FC = () => {
+interface AnalyticsScreenProps {
+  navigation: any;
+}
+
+const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
@@ -153,6 +157,17 @@ const AnalyticsScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Header */}
       <View style={styles.header}>
@@ -329,6 +344,23 @@ const styles = StyleSheet.create({
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  backButtonContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,

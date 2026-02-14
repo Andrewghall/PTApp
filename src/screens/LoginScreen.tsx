@@ -21,6 +21,10 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [gender, setGender] = useState<'male' | 'female' | 'other' | 'prefer_not_to_say' | ''>('');
+  const [phone, setPhone] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -32,8 +36,8 @@ const LoginScreen = () => {
       setErrorMsg('Please enter email and password');
       return;
     }
-    if (isSignUp && (!firstName || !lastName)) {
-      setErrorMsg('Please enter your name');
+    if (isSignUp && (!firstName || !lastName || !phone || !dateOfBirth)) {
+      setErrorMsg('Please fill in all required fields');
       return;
     }
     setErrorMsg(null);
@@ -41,7 +45,7 @@ const LoginScreen = () => {
     setLoading(true);
 
     if (isSignUp) {
-      const { error } = await auth.signUp(email, password, firstName, lastName);
+      const { error } = await auth.signUp(email, password, firstName, lastName, phone, dateOfBirth, gender, referralCode);
       setLoading(false);
       if (error) {
         setErrorMsg(error.message);
@@ -53,6 +57,10 @@ const LoginScreen = () => {
       setPassword('');
       setFirstName('');
       setLastName('');
+      setPhone('');
+      setDateOfBirth('');
+      setGender('');
+      setReferralCode('');
     } else {
       const { error } = await auth.signIn(email, password);
       setLoading(false);
@@ -112,6 +120,80 @@ const LoginScreen = () => {
                   onChangeText={setLastName}
                   placeholder="Last name"
                 />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Phone Number</Text>
+                <TextInput
+                  style={styles.input}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter your phone number"
+                  keyboardType="phone-pad"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Date of Birth</Text>
+                <TextInput
+                  style={styles.input}
+                  value={dateOfBirth}
+                  onChangeText={setDateOfBirth}
+                  placeholder="DD/MM/YYYY"
+                  keyboardType="numbers-and-punctuation"
+                />
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Gender (Optional)</Text>
+                <View style={styles.genderContainer}>
+                  <TouchableOpacity
+                    style={[styles.genderButton, gender === 'male' && styles.genderButtonActive]}
+                    onPress={() => setGender('male')}
+                  >
+                    <Text style={[styles.genderButtonText, gender === 'male' && styles.genderButtonTextActive]}>
+                      Male
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderButton, gender === 'female' && styles.genderButtonActive]}
+                    onPress={() => setGender('female')}
+                  >
+                    <Text style={[styles.genderButtonText, gender === 'female' && styles.genderButtonTextActive]}>
+                      Female
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderButton, gender === 'other' && styles.genderButtonActive]}
+                    onPress={() => setGender('other')}
+                  >
+                    <Text style={[styles.genderButtonText, gender === 'other' && styles.genderButtonTextActive]}>
+                      Other
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.genderButton, gender === 'prefer_not_to_say' && styles.genderButtonActive]}
+                    onPress={() => setGender('prefer_not_to_say')}
+                  >
+                    <Text style={[styles.genderButtonText, gender === 'prefer_not_to_say' && styles.genderButtonTextActive]}>
+                      Skip
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>Referral Code (Optional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={referralCode}
+                  onChangeText={(text) => setReferralCode(text.toUpperCase())}
+                  placeholder="Enter referral code"
+                  autoCapitalize="characters"
+                />
+                <Text style={styles.helperText}>
+                  Have a referral code? Both you and your friend get a free session!
+                </Text>
               </View>
             </>
           )}
@@ -339,6 +421,41 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontSize: 14,
     fontWeight: '500',
+  },
+  genderContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  genderButton: {
+    flex: 1,
+    minWidth: '22%',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+  },
+  genderButtonActive: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#3b82f6',
+  },
+  genderButtonText: {
+    fontSize: 13,
+    color: '#6b7280',
+    fontWeight: '500',
+  },
+  genderButtonTextActive: {
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 6,
+    fontStyle: 'italic',
   },
 });
 

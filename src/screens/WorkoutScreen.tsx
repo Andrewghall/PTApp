@@ -10,6 +10,7 @@ import {
   Image,
   Modal,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
 
 // Import the logo banner and exercise images
@@ -30,7 +31,11 @@ const femaleImages = {
   BoxSquat: require('../../FemaleBoxSquat.png'),
 };
 
-const WorkoutScreen: React.FC = () => {
+interface WorkoutScreenProps {
+  navigation: any;
+}
+
+const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation }) => {
   const [userGender, setUserGender] = useState<'male' | 'female'>('male');
   const [clientProfileId, setClientProfileId] = useState<string | null>(null);
   const [currentWeekWorkout, setCurrentWeekWorkout] = useState<any[]>([]);
@@ -122,6 +127,17 @@ const WorkoutScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Header */}
       <View style={styles.headerSection}>
@@ -296,6 +312,23 @@ const styles = StyleSheet.create({
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  backButtonContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   headerSection: {
     paddingHorizontal: 20,

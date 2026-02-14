@@ -138,6 +138,35 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             <Text style={styles.sessionLocation}>
               {nextBooking.slots.location || 'Elevate Gym'}
             </Text>
+            {(() => {
+              const sessionTime = new Date(nextBooking.slots.start_time);
+              const now = new Date();
+              const hoursUntil = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+              const cancellationDeadline = new Date(sessionTime.getTime() - 48 * 60 * 60 * 1000);
+
+              if (hoursUntil > 48 && hoursUntil < 72) {
+                // Between 48-72 hours - reminder to cancel if needed
+                return (
+                  <View style={styles.reminderBox}>
+                    <Ionicons name="information-circle" size={16} color="#3b82f6" />
+                    <Text style={styles.reminderText}>
+                      Cancel by {format(cancellationDeadline, 'MMM d, h:mm a')} if needed
+                    </Text>
+                  </View>
+                );
+              } else if (hoursUntil <= 48 && hoursUntil > 0) {
+                // Less than 48 hours - warning
+                return (
+                  <View style={styles.warningBox}>
+                    <Ionicons name="alert-circle" size={16} color="#f59e0b" />
+                    <Text style={styles.warningText}>
+                      Cancellation deadline passed - session cannot be refunded
+                    </Text>
+                  </View>
+                );
+              }
+              return null;
+            })()}
           </View>
         ) : (
           <View style={styles.sessionCard}>
@@ -459,6 +488,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#d1d5db',
     marginTop: 4,
+  },
+  reminderBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  reminderText: {
+    fontSize: 12,
+    color: '#3b82f6',
+    marginLeft: 6,
+    flex: 1,
+  },
+  warningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbeb',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  warningText: {
+    fontSize: 12,
+    color: '#f59e0b',
+    marginLeft: 6,
+    flex: 1,
   },
 });
 

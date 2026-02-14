@@ -19,15 +19,20 @@ import { format, addDays, setHours, setMinutes } from 'date-fns';
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
 
-const AdminScreen: React.FC = () => {
+interface AdminScreenProps {
+  navigation: any;
+}
+
+const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'schedule' | 'clients' | 'packs'>('schedule');
+  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'clients' | 'packs'>('overview');
   const [clients, setClients] = useState<any[]>([]);
   const [slots, setSlots] = useState<any[]>([]);
   const [creditPacks, setCreditPacks] = useState<any[]>([]);
   const [showAddSlotModal, setShowAddSlotModal] = useState(false);
   const [showAddPackModal, setShowAddPackModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
+  const [businessMetrics, setBusinessMetrics] = useState<any>(null);
 
   useEffect(() => {
     loadAdminData();
@@ -35,6 +40,10 @@ const AdminScreen: React.FC = () => {
 
   const loadAdminData = async () => {
     try {
+      // Load business metrics for overview
+      const { data: metrics } = await db.getBusinessMetrics();
+      setBusinessMetrics(metrics);
+
       // Load all clients
       const { data: clientsData } = await supabase
         .from('client_profiles')
@@ -188,6 +197,17 @@ const AdminScreen: React.FC = () => {
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
+      {/* Back Button */}
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Admin Portal</Text>
@@ -195,7 +215,25 @@ const AdminScreen: React.FC = () => {
       </View>
 
       {/* Tabs */}
-      <View style={styles.tabs}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.tabsContainer}
+        contentContainerStyle={styles.tabs}
+      >
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
+          onPress={() => setActiveTab('overview')}
+        >
+          <Ionicons
+            name="stats-chart"
+            size={20}
+            color={activeTab === 'overview' ? '#3b82f6' : '#9ca3af'}
+          />
+          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
+            Overview
+          </Text>
+        </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
           onPress={() => setActiveTab('schedule')}
@@ -235,9 +273,151 @@ const AdminScreen: React.FC = () => {
             Pricing
           </Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Business Overview</Text>
+              <Text style={styles.sectionSubtitle}>Key performance indicators</Text>
+
+              {businessMetrics ? (
+                <>
+                  {/* KPI Grid */}
+                  <View style={styles.kpiGrid}>
+                    {/* Total Clients */}
+                    <View style={styles.kpiCard}>
+                      <View style={[styles.kpiIconContainer, { backgroundColor: '#eff6ff' }]}>
+                        <Ionicons name="people" size={28} color="#3b82f6" />
+                      </View>
+                      <Text style={styles.kpiValue}>{businessMetrics.totalClients || 0}</Text>
+                      <Text style={styles.kpiLabel}>Total Clients</Text>
+                    </View>
+
+                    {/* Monthly Revenue */}
+                    <View style={styles.kpiCard}>
+                      <View style={[styles.kpiIconContainer, { backgroundColor: '#ecfdf5' }]}>
+                        <Ionicons name="wallet" size={28} color="#10b981" />
+                      </View>
+                      <Text style={styles.kpiValue}>£{businessMetrics.monthlyRevenue || 0}</Text>
+                      <Text style={styles.kpiLabel}>Monthly Revenue</Text>
+                    </View>
+
+                    {/* Attendance Rate */}
+                    <View style={styles.kpiCard}>
+                      <View style={[styles.kpiIconContainer, { backgroundColor: '#fef3c7' }]}>
+                        <Ionicons name="checkmark-circle" size={28} color="#f59e0b" />
+                      </View>
+                      <Text style={styles.kpiValue}>{businessMetrics.attendanceRate || 0}%</Text>
+                      <Text style={styles.kpiLabel}>Attendance Rate</Text>
+                    </View>
+
+                    {/* Gender Split */}
+                    <View style={styles.kpiCard}>
+                      <View style={[styles.kpiIconContainer, { backgroundColor: '#fae8ff' }]}>
+                        <Ionicons name="analytics" size={28} color="#a855f7" />
+                      </View>
+                      <Text style={styles.kpiValueSmall}>
+                        M:{businessMetrics.genderSplit?.male || 0} F:{businessMetrics.genderSplit?.female || 0}
+                      </Text>
+                      <Text style={styles.kpiLabel}>Gender Split</Text>
+                    </View>
+                  </View>
+
+                  {/* Quick Stats */}
+                  <View style={styles.quickStatsContainer}>
+                    <Text style={styles.quickStatsTitle}>Quick Stats</Text>
+
+                    <View style={styles.quickStatRow}>
+                      <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                      <Text style={styles.quickStatLabel}>Upcoming Sessions</Text>
+                      <Text style={styles.quickStatValue}>{slots.length}</Text>
+                    </View>
+
+                    <View style={styles.quickStatRow}>
+                      <Ionicons name="person-outline" size={20} color="#6b7280" />
+                      <Text style={styles.quickStatLabel}>Active Clients</Text>
+                      <Text style={styles.quickStatValue}>{clients.length}</Text>
+                    </View>
+
+                    <View style={styles.quickStatRow}>
+                      <Ionicons name="trending-up-outline" size={20} color="#6b7280" />
+                      <Text style={styles.quickStatLabel}>Session Capacity</Text>
+                      <Text style={styles.quickStatValue}>
+                        {slots.reduce((sum, s) => sum + s.booked_count, 0)}/
+                        {slots.reduce((sum, s) => sum + s.capacity, 0)}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Gender Breakdown */}
+                  <View style={styles.genderBreakdownContainer}>
+                    <Text style={styles.genderBreakdownTitle}>Client Demographics</Text>
+                    <View style={styles.genderBars}>
+                      <View style={styles.genderBarRow}>
+                        <Text style={styles.genderLabel}>Male</Text>
+                        <View style={styles.genderBarTrack}>
+                          <View
+                            style={[
+                              styles.genderBarFill,
+                              {
+                                width: `${(businessMetrics.genderSplit?.male / businessMetrics.totalClients * 100) || 0}%`,
+                                backgroundColor: '#3b82f6'
+                              }
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.genderValue}>{businessMetrics.genderSplit?.male || 0}</Text>
+                      </View>
+
+                      <View style={styles.genderBarRow}>
+                        <Text style={styles.genderLabel}>Female</Text>
+                        <View style={styles.genderBarTrack}>
+                          <View
+                            style={[
+                              styles.genderBarFill,
+                              {
+                                width: `${(businessMetrics.genderSplit?.female / businessMetrics.totalClients * 100) || 0}%`,
+                                backgroundColor: '#ec4899'
+                              }
+                            ]}
+                          />
+                        </View>
+                        <Text style={styles.genderValue}>{businessMetrics.genderSplit?.female || 0}</Text>
+                      </View>
+
+                      {businessMetrics.genderSplit?.other > 0 && (
+                        <View style={styles.genderBarRow}>
+                          <Text style={styles.genderLabel}>Other</Text>
+                          <View style={styles.genderBarTrack}>
+                            <View
+                              style={[
+                                styles.genderBarFill,
+                                {
+                                  width: `${(businessMetrics.genderSplit?.other / businessMetrics.totalClients * 100) || 0}%`,
+                                  backgroundColor: '#a855f7'
+                                }
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.genderValue}>{businessMetrics.genderSplit?.other || 0}</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+                </>
+              ) : (
+                <View style={styles.emptyMetrics}>
+                  <ActivityIndicator size="large" color="#3b82f6" />
+                  <Text style={styles.emptyMetricsText}>Loading metrics...</Text>
+                </View>
+              )}
+            </View>
+          </>
+        )}
+
         {/* Schedule Tab */}
         {activeTab === 'schedule' && (
           <>
@@ -365,18 +545,21 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     marginTop: 4,
   },
-  tabs: {
-    flexDirection: 'row',
+  tabsContainer: {
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
+  tabs: {
+    flexDirection: 'row',
+    backgroundColor: 'white',
+  },
   tab: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
+    paddingHorizontal: 20,
     gap: 6,
   },
   tabActive: {
@@ -395,6 +578,23 @@ const styles = StyleSheet.create({
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  backButtonContainer: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   scrollView: {
     flex: 1,
@@ -579,6 +779,144 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#3b82f6',
     fontWeight: '600',
+  },
+  // Overview Dashboard Styles
+  kpiGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 16,
+  },
+  kpiCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  kpiIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  kpiValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  kpiValueSmall: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  kpiLabel: {
+    fontSize: 13,
+    color: '#6b7280',
+    textAlign: 'center',
+  },
+  quickStatsContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  quickStatsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  quickStatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  quickStatLabel: {
+    flex: 1,
+    fontSize: 14,
+    color: '#4b5563',
+    marginLeft: 12,
+  },
+  quickStatValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  genderBreakdownContainer: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  genderBreakdownTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 16,
+  },
+  genderBars: {
+    gap: 12,
+  },
+  genderBarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  genderLabel: {
+    width: 60,
+    fontSize: 14,
+    color: '#4b5563',
+    fontWeight: '500',
+  },
+  genderBarTrack: {
+    flex: 1,
+    height: 24,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  genderBarFill: {
+    height: '100%',
+    borderRadius: 12,
+  },
+  genderValue: {
+    width: 32,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    textAlign: 'right',
+  },
+  emptyMetrics: {
+    paddingVertical: 60,
+    alignItems: 'center',
+  },
+  emptyMetricsText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    marginTop: 12,
   },
 });
 
