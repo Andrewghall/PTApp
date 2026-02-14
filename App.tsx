@@ -1458,8 +1458,8 @@ const ProfileScreen = ({ userProfile, onBack }: {
   );
 };
 
-// Simple Dashboard Screen
-const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile, onAnalytics, onCancelSession }: { 
+// Dashboard Screen — real data
+const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout, onWorkout, onProfile, onAnalytics, onCancelSession, creditBalance, bookedSessions, userName }: { 
   onBuyCredits: () => void, 
   onBookSession: () => void,
   onViewSessions: () => void,
@@ -1467,8 +1467,18 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
   onWorkout: () => void,
   onProfile: () => void,
   onAnalytics: () => void,
-  onCancelSession: () => void
+  onCancelSession: () => void,
+  creditBalance: number,
+  bookedSessions: any[],
+  userName: string
 }) => {
+  // Find next upcoming session
+  const now = new Date();
+  const upcomingSorted = bookedSessions
+    .filter((s: any) => s.date > now)
+    .sort((a: any, b: any) => a.date.getTime() - b.date.getTime());
+  const nextSession = upcomingSorted.length > 0 ? upcomingSorted[0] : null;
+
   return (
     <View style={styles.dashboardContainer}>
       {/* Hero Banner */}
@@ -1480,20 +1490,26 @@ const DashboardScreen = ({ onBuyCredits, onBookSession, onViewSessions, onLogout
 
       {/* Welcome Section */}
       <View style={styles.pageTitleSection}>
-        <Text style={styles.pageTitle}>Welcome to Elevate Gym</Text>
+        <Text style={styles.pageTitle}>Welcome{userName ? `, ${userName.split(' ')[0]}` : ''}</Text>
         <Text style={styles.pageSubtitle}>Let's get stronger today 💪</Text>
       </View>
 
       {/* Stats Cards */}
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
-          <Text style={styles.statNumber}>8</Text>
-          <Text style={styles.statLabel}>Sessions Remaining</Text>
+          <Text style={styles.statNumber}>{creditBalance}</Text>
+          <Text style={styles.statLabel}>Credits Remaining</Text>
         </View>
         <View style={styles.nextSessionStatCard}>
           <Text style={styles.nextSessionStatLabel}>Next Session</Text>
-          <Text style={styles.nextSessionStatDate}>Feb 18</Text>
-          <Text style={styles.nextSessionStatTime}>7:30-9:30 AM</Text>
+          {nextSession ? (
+            <>
+              <Text style={styles.nextSessionStatDate}>{nextSession.date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</Text>
+              <Text style={styles.nextSessionStatTime}>{nextSession.time}</Text>
+            </>
+          ) : (
+            <Text style={styles.nextSessionStatDate}>None booked</Text>
+          )}
         </View>
       </View>
 
@@ -2282,6 +2298,9 @@ export default function App() {
           onAnalytics={() => setCurrentScreen('analytics')}
           onCancelSession={() => setCurrentScreen('cancelSession')}
           onLogout={async () => { await auth.signOut(); setCurrentScreen('login'); }}
+          creditBalance={creditBalance}
+          bookedSessions={bookedSessions}
+          userName={userProfile.name}
         />
       </View>
     </SafeAreaProvider>
