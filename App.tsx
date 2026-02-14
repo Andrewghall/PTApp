@@ -1362,11 +1362,31 @@ const WorkoutScreen = ({ selectedDate = new Date(), userGender = 'male', clientP
 };
 
 // Profile Screen
-const ProfileScreen = ({ userProfile, onBack }: { 
+const ProfileScreen = ({ userProfile, onBack, clientProfileId, onRefresh }: { 
   userProfile: any, 
-  onBack: () => void 
+  onBack: () => void,
+  clientProfileId?: string | null,
+  onRefresh?: () => Promise<void>
 }) => {
   const [profileImage, setProfileImage] = useState(userProfile.profileImage || null);
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [phone, setPhone] = useState(userProfile.phone || '');
+  const [email, setEmail] = useState(userProfile.email || '');
+  const [saving, setSaving] = useState(false);
+  const [saveMsg, setSaveMsg] = useState<string | null>(null);
+
+  const saveField = async (field: string) => {
+    if (!clientProfileId) return;
+    setSaving(true);
+    setSaveMsg(null);
+    const updates: any = {};
+    if (field === 'phone') updates.phone = phone;
+    const { error } = await db.updateClientProfile(clientProfileId, updates);
+    setSaving(false);
+    if (error) { setSaveMsg('Failed to save'); } else { setSaveMsg('Saved!'); setEditingField(null); }
+    if (onRefresh) await onRefresh();
+    setTimeout(() => setSaveMsg(null), 3000);
+  };
   
   const handleImageUpload = async () => {
     // Request permission to access media library
@@ -1458,6 +1478,48 @@ const ProfileScreen = ({ userProfile, onBack }: {
             <Text style={styles.infoValue}>
               {Math.floor((new Date().getTime() - userProfile.dateOfBirth.getTime()) / (365.25 * 24 * 60 * 60 * 1000))} years
             </Text>
+          </View>
+        </View>
+
+        {/* Contact Information — editable */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+          
+          {saveMsg && (
+            <View style={{backgroundColor: saveMsg === 'Saved!' ? '#f0fdf4' : '#fef2f2', padding: 10, borderRadius: 8, marginBottom: 12}}>
+              <Text style={{color: saveMsg === 'Saved!' ? '#16a34a' : '#dc2626', fontSize: 13, textAlign: 'center'}}>{saveMsg}</Text>
+            </View>
+          )}
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoValue}>{email || 'Not set'}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mobile Number</Text>
+            {editingField === 'phone' ? (
+              <View style={{flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8}}>
+                <TextInput
+                  style={[styles.input, {flex: 1, marginBottom: 0, paddingVertical: 8, fontSize: 14}]}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter mobile number"
+                  keyboardType="phone-pad"
+                />
+                <TouchableOpacity onPress={() => saveField('phone')} disabled={saving} style={{backgroundColor: '#3b82f6', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8}}>
+                  <Text style={{color: '#fff', fontWeight: '600', fontSize: 13}}>{saving ? '...' : 'Save'}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => { setEditingField(null); setPhone(userProfile.phone || ''); }} style={{paddingHorizontal: 8, paddingVertical: 8}}>
+                  <Text style={{color: '#6b7280', fontSize: 13}}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity onPress={() => setEditingField('phone')} style={{flexDirection: 'row', alignItems: 'center'}}>
+                <Text style={[styles.infoValue, {marginRight: 8}]}>{phone || 'Not set'}</Text>
+                <Text style={{color: '#3b82f6', fontSize: 13, fontWeight: '600'}}>Edit</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         
@@ -2320,7 +2382,7 @@ export default function App() {
             <Text style={styles.appTitle}>My Profile</Text>
             <View style={styles.placeholder} />
           </View>
-          <ProfileScreen userProfile={userProfile} onBack={() => setCurrentScreen('dashboard')} />
+          <ProfileScreen userProfile={userProfile} onBack={() => setCurrentScreen('dashboard')} clientProfileId={clientProfileId} onRefresh={async () => { if (userId) await loadUserData(userId); }} />
         </View>
       </SafeAreaProvider>
     );
