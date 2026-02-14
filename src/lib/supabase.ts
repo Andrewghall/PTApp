@@ -8,27 +8,16 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 // ── Auth helpers ──────────────────────────────────────────
 export const auth = {
   signUp: async (email: string, password: string, firstName: string, lastName: string) => {
-    // 1. Create auth user
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error || !data.user) return { data, error };
-
-    // 2. Create client_profile (profile row is auto-created by DB trigger)
-    const { error: cpErr } = await supabase
-      .from('client_profiles')
-      .insert([{ user_id: data.user.id, first_name: firstName, last_name: lastName }]);
-    if (cpErr) return { data, error: cpErr };
-
-    // 3. Create credit_balance row (start with 0)
-    const { data: cp } = await supabase
-      .from('client_profiles')
-      .select('id')
-      .eq('user_id', data.user.id)
-      .single();
-    if (cp) {
-      await supabase.from('credit_balances').insert([{ client_id: cp.id, balance: 0 }]);
-    }
-
-    return { data, error: null };
+    // Create auth user with metadata — the DB trigger (SECURITY DEFINER)
+    // handles creating profiles, client_profiles, and credit_balances rows
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { first_name: firstName, last_name: lastName },
+      },
+    });
+    return { data, error };
   },
 
   signIn: async (email: string, password: string) => {
