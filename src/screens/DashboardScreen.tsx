@@ -115,7 +115,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
           <Text style={styles.creditsSubtext}>1 credit = 1 PT session</Text>
           <TouchableOpacity
             style={styles.buyCreditsButton}
-            onPress={() => navigation.navigate('Book')}
+            onPress={() => navigation.navigate('Credits')}
           >
             <Text style={styles.buyCreditsText}>Buy More Credits</Text>
           </TouchableOpacity>

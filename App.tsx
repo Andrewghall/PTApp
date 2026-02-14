@@ -13,9 +13,22 @@ import BookingScreen from './src/screens/BookingScreen';
 import WorkoutScreen from './src/screens/WorkoutScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import AdminScreen from './src/screens/AdminScreen';
+import CreditsScreen from './src/screens/CreditsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Dashboard Stack Navigator (includes Credits screen)
+function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: string }) {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="DashboardHome">
+        {(props) => <DashboardScreen {...props} onLogout={onLogout} userId={userId} />}
+      </Stack.Screen>
+      <Stack.Screen name="Credits" component={CreditsScreen} />
+    </Stack.Navigator>
+  );
+}
 
 export default function App() {
   const [session, setSession] = useState<any>(null);
@@ -94,7 +107,7 @@ export default function App() {
             })}
           >
             <Tab.Screen name="Dashboard">
-              {(props) => <DashboardScreen {...props} onLogout={handleLogout} userId={session.user.id} />}
+              {() => <DashboardStack onLogout={handleLogout} userId={session.user.id} />}
             </Tab.Screen>
             <Tab.Screen name="Book" component={BookingScreen} />
             <Tab.Screen name="Workout" component={WorkoutScreen} />
