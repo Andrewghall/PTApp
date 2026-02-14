@@ -54,9 +54,10 @@ const CreditsScreen: React.FC = () => {
   const handlePurchase = async (pack: any) => {
     if (!clientId) return;
 
+    const displayPrice = Number(pack.price);
     Alert.alert(
       'Purchase Sessions',
-      `Buy ${pack.credits} sessions for £${pack.price}?`,
+      `Buy ${pack.credits} sessions for £${displayPrice}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -69,7 +70,7 @@ const CreditsScreen: React.FC = () => {
               await db.addCredits(
                 clientId,
                 pack.credits,
-                `Purchased ${pack.credits} session pack for £${pack.price}`
+                `Purchased ${pack.credits} session pack for £${displayPrice}`
               );
 
               Alert.alert('Success!', `${pack.credits} sessions added to your account!`);
@@ -119,7 +120,9 @@ const CreditsScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
-            const pricePerCredit = (pack.price / pack.credits).toFixed(2);
+            // Format price properly (handle both decimal and integer formats)
+            const displayPrice = Number(pack.price);
+            const pricePerCredit = (displayPrice / pack.credits).toFixed(2);
             const savings = hasDiscount
               ? ((pack.credits * 25 * pack.discount_percent) / 100).toFixed(0)
               : 0;
@@ -147,10 +150,10 @@ const CreditsScreen: React.FC = () => {
                   </View>
 
                   <View style={styles.packPricing}>
-                    <Text style={styles.packPrice}>£{pack.price}</Text>
+                    <Text style={styles.packPrice}>£{displayPrice}</Text>
                     {hasDiscount && (
                       <Text style={styles.originalPrice}>
-                        £{(pack.credits * 25).toFixed(0)}
+                        £{(pack.credits * 25)}
                       </Text>
                     )}
                   </View>
