@@ -2193,6 +2193,7 @@ export default function App() {
 
   // Load all user data from Supabase
   const loadUserData = useCallback(async (uid: string) => {
+    if (!uid) return; // Safety check
     const { data: profile } = await db.getClientProfile(uid);
     if (profile) {
       setClientProfile(profile);
@@ -2202,11 +2203,16 @@ export default function App() {
       const { data: bookings } = await db.getClientBookings(profile.id, 'booked');
       if (bookings) {
         const mapped = bookings.map((b: any) => {
-          const start = new Date(b.slots.start_time);
-          const end = new Date(b.slots.end_time);
-          const timeStr = `${start.getHours()}:${start.getMinutes().toString().padStart(2,'0')} - ${end.getHours()}:${end.getMinutes().toString().padStart(2,'0')}`;
-          const h = start.getHours();
-          return { id: b.id, date: start, time: timeStr, label: h < 10 ? 'Morning Session' : 'Late Morning', icon: h < 10 ? '🌅' : '☀️', slotId: b.slots.id, bookingId: b.id };
+          const d = new Date(b.slot.start_time);
+          return {
+            id: b.id,
+            date: d,
+            time: d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
+            label: 'PT Session',
+            icon: '💪',
+            slotId: b.slot.id,
+            bookingId: b.id
+          };
         });
         setBookedSessions(mapped);
       }
