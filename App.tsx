@@ -1566,9 +1566,8 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   container: {
-    flex: 1,
+    minHeight: '100vh',
     backgroundColor: '#f8fafc',
-    justifyContent: 'center',
     padding: 20,
   },
   logoContainer: {
@@ -1582,7 +1581,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   appContainer: {
-    flex: 1,
+    minHeight: '100vh',
     backgroundColor: '#f8fafc',
   },
   card: {
