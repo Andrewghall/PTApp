@@ -1,7 +1,7 @@
 -- Seed time slots for the next 8 weeks (Mon-Fri, 2 sessions per day)
 -- Run this in Supabase SQL Editor: https://supabase.com/dashboard/project/lrysavxxoxiqwfhmvazy/sql
 
--- Clear existing slots first
+-- Clear existing data
 DELETE FROM bookings;
 DELETE FROM slots;
 

@@ -789,15 +789,16 @@ const CreditsScreen = ({ clientProfileId, onRefresh }: { clientProfileId: string
           credits: p.credits,
           price: p.price / 100, // DB stores in cents
           bonus: p.bonus_credits || 0,
+          discount: p.discount_percent || null,
           description: p.name,
         })));
       } else {
         // Fallback if DB has no packs
         setCreditPacks([
-          { id: 'fallback-1', credits: 4, price: 100, bonus: 0, description: '4 Sessions' },
-          { id: 'fallback-2', credits: 8, price: 200, bonus: 0, description: '8 Sessions' },
-          { id: 'fallback-3', credits: 12, price: 300, bonus: 1, description: '12 Sessions + 1 FREE' },
-          { id: 'fallback-4', credits: 20, price: 500, bonus: 2, description: '20 Sessions + 2 FREE' },
+          { id: 'fallback-1', credits: 4, price: 100, bonus: 0, discount: null, description: '4 Sessions' },
+          { id: 'fallback-2', credits: 8, price: 200, bonus: 0, discount: null, description: '8 Sessions' },
+          { id: 'fallback-3', credits: 12, price: 300, bonus: 1, discount: null, description: '12 Sessions + 1 FREE' },
+          { id: 'fallback-4', credits: 20, price: 500, bonus: 2, discount: null, description: '20 Sessions + 2 FREE' },
         ]);
       }
     };
@@ -845,39 +846,48 @@ const CreditsScreen = ({ clientProfileId, onRefresh }: { clientProfileId: string
           <Text style={styles.pageSubtitle}>Credits are used for PT sessions</Text>
         </View>
 
-      {creditPacks.map((pack) => (
-        <View key={pack.id} style={[styles.creditPack, pack.bonus > 0 && {borderWidth: 2, borderColor: '#10b981'}]}>
-          {pack.bonus > 0 && (
-            <View style={{backgroundColor: '#10b981', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12, position: 'absolute', top: -12, right: 16, zIndex: 1}}>
-              <Text style={{color: '#fff', fontSize: 11, fontWeight: 'bold'}}>+{pack.bonus} FREE SESSION{pack.bonus > 1 ? 'S' : ''}!</Text>
+      {creditPacks.map((pack) => {
+        const hasDiscount = pack.discount || pack.bonus > 0;
+        const discountText = pack.discount ? `${pack.discount}% OFF` : `+${pack.bonus} FREE`;
+        const originalPrice = pack.price * (pack.discount ? (100 / (100 - pack.discount)) : ((pack.credits + pack.bonus) / pack.credits));
+        
+        return (
+          <View key={pack.id} style={[styles.creditPack, hasDiscount && {borderWidth: 2, borderColor: '#10b981'}]}>
+            {hasDiscount && (
+              <View style={{backgroundColor: '#10b981', paddingVertical: 4, paddingHorizontal: 12, borderRadius: 12, position: 'absolute', top: -12, right: 16, zIndex: 1}}>
+                <Text style={{color: '#fff', fontSize: 11, fontWeight: 'bold'}}>{discountText}</Text>
+              </View>
+            )}
+            <View style={styles.packInfo}>
+              <Text style={styles.packCredits}>{pack.credits + pack.bonus} Sessions</Text>
+              <Text style={styles.packDescription}>{pack.description}</Text>
+              {hasDiscount && (
+                <Text style={{fontSize: 12, color: '#10b981', fontWeight: '700', marginTop: 4}}>
+                  {pack.discount 
+                    ? `Save ${pack.discount}% - €${originalPrice.toFixed(0) - pack.price} off!`
+                    : `Save €${pack.bonus * 25}! (${pack.bonus} free session${pack.bonus > 1 ? 's' : ''})`
+                  }
+                </Text>
+              )}
             </View>
-          )}
-          <View style={styles.packInfo}>
-            <Text style={styles.packCredits}>{pack.credits + pack.bonus} Sessions</Text>
-            <Text style={styles.packDescription}>{pack.description}</Text>
-            {pack.bonus > 0 && (
-              <Text style={{fontSize: 12, color: '#10b981', fontWeight: '700', marginTop: 4}}>
-                Save €{pack.bonus * 25}! ({pack.bonus} free session{pack.bonus > 1 ? 's' : ''} worth €{pack.bonus * 25})
-              </Text>
-            )}
+            <View style={styles.packPricing}>
+              <Text style={styles.packPrice}>€{pack.price}</Text>
+              {hasDiscount && (
+                <Text style={{fontSize: 10, color: '#6b7280', textDecorationLine: 'line-through'}}>€{originalPrice.toFixed(0)}</Text>
+              )}
+              <TouchableOpacity 
+                style={[styles.buyButton, loading && styles.buyButtonDisabled]}
+                onPress={() => handlePurchase(pack)}
+                disabled={loading}
+              >
+                <Text style={styles.buyButtonText}>
+                  {loading ? 'Processing...' : 'Buy Now'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
-          <View style={styles.packPricing}>
-            <Text style={styles.packPrice}>€{pack.price}</Text>
-            {pack.bonus > 0 && (
-              <Text style={{fontSize: 10, color: '#6b7280', textDecorationLine: 'line-through'}}>€{(pack.credits + pack.bonus) * 25}</Text>
-            )}
-            <TouchableOpacity 
-              style={[styles.buyButton, loading && styles.buyButtonDisabled]}
-              onPress={() => handlePurchase(pack)}
-              disabled={loading}
-            >
-              <Text style={styles.buyButtonText}>
-                {loading ? 'Processing...' : 'Buy Now'}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      ))}
+        );
+      })}
 
       <View style={styles.paymentInfo}>
         <Text style={styles.paymentTitle}>Payment Information</Text>
