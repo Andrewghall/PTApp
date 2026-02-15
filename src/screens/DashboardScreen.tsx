@@ -257,18 +257,18 @@ const QuickActionCard: React.FC<{
   gradientColors: string[];
 }> = ({ icon, title, subtitle, onPress, gradientColors }) => (
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
-    <LinearGradient
-      colors={gradientColors}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      style={styles.actionGradient}
-    >
-      <Ionicons name={icon as any} size={32} color="white" />
-      <View style={styles.actionTextContainer}>
-        <Text style={styles.actionTitle}>{title}</Text>
-        <Text style={styles.actionSubtitle}>{subtitle}</Text>
-      </View>
-    </LinearGradient>
+    <View style={styles.actionCardInner}>
+      <LinearGradient
+        colors={gradientColors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.iconCircle}
+      >
+        <Ionicons name={icon as any} size={28} color="white" />
+      </LinearGradient>
+      <Text style={styles.actionTitle}>{title}</Text>
+      <Text style={styles.actionSubtitle}>{subtitle}</Text>
+    </View>
   </TouchableOpacity>
 );
 
@@ -424,35 +424,44 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     paddingHorizontal: 20,
     gap: 12,
+    marginBottom: 20,
   },
   actionCard: {
     width: '47%',
+    backgroundColor: 'white',
     borderRadius: 16,
-    overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
-  actionGradient: {
+  actionCardInner: {
     padding: 20,
-    minHeight: 120,
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    minHeight: 160,
+    justifyContent: 'center',
   },
-  actionTextContainer: {
-    marginTop: 12,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   actionTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'white',
-    marginBottom: 2,
+    color: '#1f2937',
+    marginBottom: 4,
+    textAlign: 'center',
   },
   actionSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 13,
+    color: '#6b7280',
     fontWeight: '500',
+    textAlign: 'center',
   },
   workoutsList: {
     paddingHorizontal: 20,

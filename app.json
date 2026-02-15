@@ -18,7 +18,9 @@
     "android": {
       "package": "com.ptbusiness.app"
     },
-    "web": {},
+    "web": {
+      "bundler": "metro"
+    },
     "platforms": [
       "ios",
       "android",
