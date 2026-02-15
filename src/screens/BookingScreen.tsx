@@ -226,7 +226,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             onPress={() => setCurrentWeek(addDays(currentWeek, -7))}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-back" size={24} color="#3b82f6" />
+            <Ionicons name="chevron-back" size={28} color="#1f2937" />
           </TouchableOpacity>
           <Text style={styles.weekText}>
             {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM d')} -{' '}
@@ -236,7 +236,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             onPress={() => setCurrentWeek(addDays(currentWeek, 7))}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-forward" size={24} color="#3b82f6" />
+            <Ionicons name="chevron-forward" size={28} color="#1f2937" />
           </TouchableOpacity>
         </View>
 
@@ -466,11 +466,15 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   navButton: {
-    padding: 8,
-    backgroundColor: '#eff6ff',
+    padding: 12,
+    backgroundColor: '#f3f4f6',
     borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderWidth: 2,
+    borderColor: '#1f2937',
+    minWidth: 48,
+    height: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   weekText: {
     fontSize: 16,
