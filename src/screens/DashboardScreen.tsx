@@ -311,8 +311,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         {recentWorkouts.length > 0 ? (
           <View style={styles.workoutsList}>
             {recentWorkouts.slice(0, 3).map((workout, index) => (
-              <View key={workout.id} style={styles.workoutItem}>
-                <Ionicons name="barbell" size={20} color="#6b7280" />
+              <TouchableOpacity
+                key={workout.id}
+                style={styles.workoutItem}
+                onPress={() => navigation.navigate('Workout', { selectedDate: new Date(workout.date) })}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="barbell" size={20} color="#3b82f6" />
                 <View style={styles.workoutDetails}>
                   <Text style={styles.workoutDate}>
                     {format(new Date(workout.date), 'MMM d, yyyy')}
@@ -321,7 +326,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
                     {workout.workout_exercises?.length || 0} exercises
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+              </TouchableOpacity>
             ))}
           </View>
         ) : (

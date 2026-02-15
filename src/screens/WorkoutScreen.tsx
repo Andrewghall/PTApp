@@ -52,9 +52,12 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
     notes: '',
     type: 'normal',
   });
+  const [availableExercises, setAvailableExercises] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     loadData();
+    loadExercisesFromDB();
   }, []);
 
   useEffect(() => {
@@ -63,6 +66,17 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       loadWorkoutForDate();
     }
   }, [selectedDate, clientProfileId]);
+
+  const loadExercisesFromDB = async () => {
+    try {
+      const { data: exercisesData } = await db.getExercises();
+      if (exercisesData) {
+        setAvailableExercises(exercisesData);
+      }
+    } catch (error) {
+      console.error('Error loading exercises:', error);
+    }
+  };
 
   const loadData = async () => {
     const { session } = await auth.getSession();
@@ -158,14 +172,31 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
     return maleImages.BenchPress; // Default
   };
 
-  // Core exercises with images
-  const exercises = [
-    { id: '1', name: 'Bench Press', category: 'Chest', imageKey: 'BenchPress' },
-    { id: '2', name: 'Squats', category: 'Legs', imageKey: 'Squats' },
-    { id: '3', name: 'Box Squats', category: 'Legs', imageKey: 'BoxSquat' },
-    { id: '4', name: 'Deadlift', category: 'Back', imageKey: 'DeadLift' },
-    { id: '5', name: 'Overhead Press', category: 'Shoulders', imageKey: 'OverheadPress' },
-  ];
+  // Map exercise names to image keys
+  const getImageKeyForExercise = (name: string) => {
+    const mapping: { [key: string]: string } = {
+      'Bench Press': 'BenchPress',
+      'Squat': 'Squats',
+      'Deadlift': 'DeadLift',
+      'Overhead Press': 'OverheadPress',
+    };
+    return mapping[name] || 'BenchPress'; // Default fallback
+  };
+
+  // Core exercises - will be populated from database, but with fallback
+  const exercises = availableExercises.length > 0
+    ? availableExercises.filter(e =>
+        ['Bench Press', 'Squat', 'Deadlift', 'Overhead Press'].includes(e.name)
+      ).map(e => ({
+        ...e,
+        imageKey: getImageKeyForExercise(e.name)
+      }))
+    : [
+        { id: '1', name: 'Bench Press', category: 'Chest', imageKey: 'BenchPress' },
+        { id: '2', name: 'Squat', category: 'Legs', imageKey: 'Squats' },
+        { id: '3', name: 'Deadlift', category: 'Back', imageKey: 'DeadLift' },
+        { id: '4', name: 'Overhead Press', category: 'Shoulders', imageKey: 'OverheadPress' },
+      ];
 
   const addExerciseToWorkout = async (exercise: any) => {
     if (!clientProfileId) return;
@@ -181,12 +212,41 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
         setCurrentWorkoutId(workoutId);
       }
 
-      // For now, just add to UI - full database integration would require finding exercise ID
+      // Find exercise in database to get its ID
+      const dbExercise = availableExercises.find(e => e.name === exercise.name);
+      if (!dbExercise) {
+        Alert.alert('Error', 'Exercise not found in database');
+        return;
+      }
+
+      // Save exercise to database
+      const orderIndex = currentWeekWorkout.length;
+      const { data: workoutExerciseData, error: weError } = await db.addWorkoutExercise(
+        workoutId,
+        dbExercise.id,
+        orderIndex
+      );
+      if (weError) throw weError;
+
+      // Parse sets and weight (e.g., "3x10" -> 3 sets of 10 reps, "60kg" -> 60)
+      const setsInput = newExercise.sets || '3x10';
+      const weightInput = newExercise.weight || '60kg';
+      const setsParts = setsInput.split('x');
+      const numSets = parseInt(setsParts[0]) || 3;
+      const reps = parseInt(setsParts[1]) || 10;
+      const weight = parseInt(weightInput.replace(/[^0-9]/g, '')) || 60;
+
+      // Save set entries to database
+      for (let i = 0; i < numSets; i++) {
+        await db.addSetEntry(workoutExerciseData.id, weight, reps, newExercise.notes);
+      }
+
+      // Add to UI
       const workoutExercise = {
-        id: Date.now(),
+        id: workoutExerciseData.id,
         name: exercise.name,
-        sets: newExercise.sets || '3x10',
-        weight: newExercise.weight || '60kg',
+        sets: setsInput,
+        weight: `${weight}kg`,
         type: newExercise.type || 'normal',
         notes: newExercise.notes,
         imageKey: exercise.imageKey,
@@ -194,7 +254,7 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       setCurrentWeekWorkout([...currentWeekWorkout, workoutExercise]);
       setShowAddExercise(false);
       setNewExercise({ sets: '', weight: '', notes: '', type: 'normal' });
-      Alert.alert('Success', 'Exercise added to workout!');
+      Alert.alert('Success', 'Exercise saved to workout!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to add exercise');
     }
