@@ -104,19 +104,33 @@ The app includes comprehensive data models for:
 
 ## Testing the App
 
+### Setting Up Admin Access
+
+**Quick Start**: See [ADMIN_SETUP_GUIDE.md](./ADMIN_SETUP_GUIDE.md) for detailed instructions.
+
+**Default Admin Credentials** (for testing):
+```
+Email: admin@ptapp.com
+Password: PTAdmin2024!
+```
+
+**Setup Steps**:
+1. Go to Supabase Dashboard → Authentication → Users → Add user
+2. Create user with email `admin@ptapp.com`, password `PTAdmin2024!`
+3. Enable "Auto Confirm User"
+4. Go to Table Editor → profiles table
+5. Find the user and change `role` to `admin`
+6. Login to the app with those credentials
+
+### Creating Client Accounts
+
 1. **Create Test Accounts**
    - Open the app and click "Don't have an account? Sign Up"
    - Create a client account (default role)
-   - Create an admin account (you'll need to manually set role in Supabase)
 
-2. **Set Admin Role**
-   - In Supabase dashboard, go to Table Editor
-   - Open the `profiles` table
-   - Find your admin user and set `role` to 'admin'
-
-3. **Test Features**
-   - Login as client: See dashboard, credits, quick actions
-   - Login as admin: Access admin portal (coming in Phase 7)
+2. **Test Features**
+   - Login as client: Dashboard, workouts, bookings, credits, messaging
+   - Login as admin: Business overview, schedule, clients, pricing, block bookings
 
 ## Development Notes
 
