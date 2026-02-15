@@ -18,6 +18,7 @@ import CreditsScreen from './src/screens/CreditsScreen';
 import MessagingScreen from './src/screens/MessagingScreen';
 import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
 import ReferralsScreen from './src/screens/ReferralsScreen';
+import ProfileScreen from './src/screens/ProfileScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -33,7 +34,7 @@ const TabBarIcon = ({ iconName, focused }: { iconName: any; focused: boolean }) 
   );
 };
 
-// Dashboard Stack Navigator (includes Credits, Workout, Analytics screens)
+// Dashboard Stack Navigator (includes Credits, Workout, Analytics, Profile screens)
 function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: string }) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -43,6 +44,9 @@ function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: st
       <Stack.Screen name="Credits" component={CreditsScreen} />
       <Stack.Screen name="Workout" component={WorkoutScreen} />
       <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+      <Stack.Screen name="Profile">
+        {(props) => <ProfileScreen {...props} route={{ params: { userId } }} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

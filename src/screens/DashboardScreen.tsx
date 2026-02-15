@@ -214,7 +214,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             icon="person-outline"
             title="Profile"
             subtitle="Edit details"
-            onPress={() => navigation.navigate('Credits')}
+            onPress={() => navigation.navigate('Profile')}
             color="#F5A962"
           />
         </View>
