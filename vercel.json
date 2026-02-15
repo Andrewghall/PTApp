@@ -1,5 +1,5 @@
 {
-  "buildCommand": "export $(cat .env.production | grep -v '^#' | xargs) && npm run build",
+  "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "routes": [
     {
@@ -14,5 +14,11 @@
       "src": "/(.*)",
       "dest": "/index.html"
     }
-  ]
+  ],
+  "build": {
+    "env": {
+      "EXPO_PUBLIC_SUPABASE_URL": "@expo_public_supabase_url",
+      "EXPO_PUBLIC_SUPABASE_ANON_KEY": "@expo_public_supabase_anon_key"
+    }
+  }
 }
