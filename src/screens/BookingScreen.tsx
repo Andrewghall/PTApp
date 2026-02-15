@@ -460,6 +460,10 @@ const styles = StyleSheet.create({
   },
   navButton: {
     padding: 8,
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
   },
   weekText: {
     fontSize: 16,
