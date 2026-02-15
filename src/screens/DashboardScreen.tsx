@@ -210,6 +210,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             onPress={() => navigation.navigate('Analytics')}
             color="#A78BFA"
           />
+          <QuickActionCard
+            icon="person-outline"
+            title="Profile"
+            subtitle="Edit details"
+            onPress={() => {}}
+            color="#F5A962"
+          />
         </View>
 
         {/* Recent Activity */}
@@ -252,7 +259,7 @@ const QuickActionCard: React.FC<{
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.actionCardInner}>
       <View style={[styles.iconCircle, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={28} color="white" />
+        <Ionicons name={icon as any} size={32} color="#FFFFFF" style={{ zIndex: 10 }} />
       </View>
       <Text style={styles.actionTitle}>{title}</Text>
       <Text style={styles.actionSubtitle}>{subtitle}</Text>
