@@ -9,11 +9,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db, supabase } from '../lib/supabase';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
@@ -75,6 +76,72 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
   const onRefresh = () => {
     setRefreshing(true);
     loadDashboardData();
+  };
+
+  const handleCancelBooking = async (booking: any) => {
+    if (!clientProfile) return;
+
+    // Get the slot_id
+    const slotId = booking.slot_id || booking.slots?.id;
+    if (!slotId) {
+      Alert.alert('Error', 'Unable to cancel booking - slot information missing');
+      return;
+    }
+
+    // Calculate hours until session
+    const sessionTime = new Date(booking.slots.start_time);
+    const now = new Date();
+    const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+
+    if (hoursUntilSession < 48) {
+      // Less than 48 hours - no refund
+      Alert.alert(
+        'Late Cancellation',
+        'Cancellations less than 48 hours before the session will forfeit your session. You will not receive a refund. Continue?',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await db.cancelBooking(booking.id, slotId);
+                Alert.alert('Cancelled', 'Session cancelled. No refund issued due to late cancellation.');
+                loadDashboardData();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel booking');
+              }
+            },
+          },
+        ]
+      );
+    } else {
+      // More than 48 hours - full refund
+      Alert.alert(
+        'Cancel Booking',
+        'Are you sure you want to cancel this booking? Your session will be refunded.',
+        [
+          { text: 'No', style: 'cancel' },
+          {
+            text: 'Yes, Cancel',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await db.cancelBooking(booking.id, slotId);
+                await db.refundCredit(
+                  clientProfile.id,
+                  `Refund for cancelled booking on ${format(parseISO(booking.slots.start_time), 'MMM d')}`
+                );
+                Alert.alert('Success', 'Booking cancelled and session refunded');
+                loadDashboardData();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'Failed to cancel booking');
+              }
+            },
+          },
+        ]
+      );
+    }
   };
 
   if (loading) {
@@ -169,17 +236,26 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
               }
               return null;
             })()}
-            <TouchableOpacity
-              style={styles.planWorkoutButton}
-              onPress={() => {
-                // Navigate to Workout screen with the session date
-                const sessionDate = new Date(nextBooking.slots.start_time);
-                navigation.navigate('Workout', { selectedDate: sessionDate });
-              }}
-            >
-              <Ionicons name="barbell" size={20} color="white" />
-              <Text style={styles.planWorkoutButtonText}>Plan Workout</Text>
-            </TouchableOpacity>
+            <View style={styles.sessionActions}>
+              <TouchableOpacity
+                style={styles.planWorkoutButton}
+                onPress={() => {
+                  // Navigate to Workout screen with the session date
+                  const sessionDate = new Date(nextBooking.slots.start_time);
+                  navigation.navigate('Workout', { selectedDate: sessionDate });
+                }}
+              >
+                <Ionicons name="barbell" size={20} color="white" />
+                <Text style={styles.planWorkoutButtonText}>Plan Workout</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.cancelSessionButton}
+                onPress={() => handleCancelBooking(nextBooking)}
+              >
+                <Ionicons name="close-circle" size={20} color="white" />
+                <Text style={styles.cancelSessionButtonText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         ) : (
           <View style={styles.sessionCard}>
@@ -541,17 +617,37 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     flex: 1,
   },
+  sessionActions: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 12,
+  },
   planWorkoutButton: {
+    flex: 1,
     backgroundColor: '#10b981',
     borderRadius: 8,
     padding: 12,
     alignItems: 'center',
-    marginTop: 12,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 8,
   },
   planWorkoutButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  cancelSessionButton: {
+    flex: 1,
+    backgroundColor: '#ef4444',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  cancelSessionButtonText: {
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
