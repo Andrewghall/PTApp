@@ -82,9 +82,6 @@ const LoginScreen = () => {
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
-          <View style={styles.logoContainer}>
-            <Text style={styles.logoText}>Elevate Gym</Text>
-          </View>
           <Image source={logoBanner} style={styles.heroBanner as any} resizeMode="cover" />
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back'}
