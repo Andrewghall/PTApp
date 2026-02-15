@@ -135,9 +135,12 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Session History</Text>
+          <Text style={styles.headerTitle}>Past PT Sessions</Text>
           <Text style={styles.headerSubtitle}>
-            {bookings.length} past session{bookings.length !== 1 ? 's' : ''}
+            {bookings.length} past appointment{bookings.length !== 1 ? 's' : ''}
+          </Text>
+          <Text style={styles.headerNote}>
+            To view workout logs, go to Dashboard → Log Workout and navigate to past dates
           </Text>
         </View>
 
@@ -376,6 +379,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
     marginTop: 4,
+  },
+  headerNote: {
+    fontSize: 12,
+    color: '#3b82f6',
+    marginTop: 8,
+    fontStyle: 'italic',
   },
   statsContainer: {
     flexDirection: 'row',

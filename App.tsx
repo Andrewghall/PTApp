@@ -201,7 +201,11 @@ export default function App() {
                 tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
               }}
             />
-            <Tab.Screen name="History" component={SessionHistoryScreen} />
+            <Tab.Screen
+              name="History"
+              component={SessionHistoryScreen}
+              options={{ title: 'Past Sessions' }}
+            />
             <Tab.Screen name="Refer" component={ReferralsScreen} />
             {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminScreen} />}
           </Tab.Navigator>
