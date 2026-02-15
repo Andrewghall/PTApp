@@ -30,6 +30,7 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   const [conversations, setConversations] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [adminUser, setAdminUser] = useState<any>(null);
   const [selectedConversation, setSelectedConversation] = useState<any>(null);
   const [showChatModal, setShowChatModal] = useState(false);
   const [newMessage, setNewMessage] = useState('');
@@ -67,6 +68,20 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
       if (profile) {
         setUserRole(profile.role);
+      }
+
+      // If client, get the admin user for starting new conversations
+      if (profile?.role === 'client') {
+        const { data: admin } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name, role')
+          .eq('role', 'admin')
+          .limit(1)
+          .single();
+
+        if (admin) {
+          setAdminUser(admin);
+        }
       }
 
       // Get all messages for this user
@@ -115,6 +130,19 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const startNewConversation = () => {
+    if (!adminUser) return;
+
+    // Create a conversation object for the admin/PT
+    setSelectedConversation({
+      user: adminUser,
+      userId: adminUser.id,
+      lastMessage: null,
+      unreadCount: 0,
+    });
+    setShowChatModal(true);
   };
 
   const openConversation = async (conversation: any) => {
@@ -175,10 +203,17 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Messages</Text>
-        <Text style={styles.headerSubtitle}>
-          {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
-        </Text>
+        <View>
+          <Text style={styles.headerTitle}>Messages</Text>
+          <Text style={styles.headerSubtitle}>
+            {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
+          </Text>
+        </View>
+        {userRole === 'client' && adminUser && (
+          <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
+            <Ionicons name="create-outline" size={24} color="white" />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Conversations List */}
@@ -349,6 +384,22 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  newMessageButton: {
+    backgroundColor: '#3b82f6',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 28,
