@@ -5,6 +5,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ActivityIndicator, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 
 import { auth, supabase, db } from './src/lib/supabase';
 import LoginScreen from './src/screens/LoginScreen';
@@ -20,6 +21,23 @@ import ReferralsScreen from './src/screens/ReferralsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
+
+// Custom Tab Bar Icon with Gradient Circle
+const TabBarIcon = ({ iconName, focused, colors }: { iconName: any; focused: boolean; colors: string[] }) => {
+  if (focused) {
+    return (
+      <LinearGradient
+        colors={colors}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={{ width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }}
+      >
+        <Ionicons name={iconName} size={24} color="white" />
+      </LinearGradient>
+    );
+  }
+  return <Ionicons name={iconName} size={24} color="#9ca3af" />;
+};
 
 // Dashboard Stack Navigator (includes Credits screen)
 function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: string }) {
@@ -127,31 +145,47 @@ export default function App() {
         ) : (
           <Tab.Navigator
             screenOptions={({ route }) => ({
-              tabBarIcon: ({ focused, color, size }) => {
+              tabBarIcon: ({ focused }) => {
                 let iconName: any;
-                if (route.name === 'Dashboard') iconName = focused ? 'home' : 'home-outline';
-                else if (route.name === 'Book') iconName = focused ? 'calendar' : 'calendar-outline';
-                else if (route.name === 'Messages') iconName = focused ? 'mail' : 'mail-outline';
-                else if (route.name === 'History') iconName = focused ? 'time' : 'time-outline';
-                else if (route.name === 'Refer') iconName = focused ? 'gift' : 'gift-outline';
-                else if (route.name === 'Workout') iconName = focused ? 'barbell' : 'barbell-outline';
-                else if (route.name === 'Analytics') iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                else if (route.name === 'Admin') iconName = focused ? 'settings' : 'settings-outline';
-                return <Ionicons name={iconName} size={size} color={color} />;
+                let gradientColors: string[] = ['#3b82f6', '#2563eb'];
+
+                if (route.name === 'Dashboard') {
+                  iconName = focused ? 'home' : 'home-outline';
+                  gradientColors = ['#3b82f6', '#2563eb']; // Blue
+                } else if (route.name === 'Book') {
+                  iconName = focused ? 'calendar' : 'calendar-outline';
+                  gradientColors = ['#10b981', '#059669']; // Green
+                } else if (route.name === 'Messages') {
+                  iconName = focused ? 'mail' : 'mail-outline';
+                  gradientColors = ['#f59e0b', '#d97706']; // Orange
+                } else if (route.name === 'History') {
+                  iconName = focused ? 'time' : 'time-outline';
+                  gradientColors = ['#8b5cf6', '#7c3aed']; // Purple
+                } else if (route.name === 'Refer') {
+                  iconName = focused ? 'gift' : 'gift-outline';
+                  gradientColors = ['#ec4899', '#db2777']; // Pink
+                } else if (route.name === 'Workout') {
+                  iconName = focused ? 'barbell' : 'barbell-outline';
+                  gradientColors = ['#10b981', '#059669']; // Green
+                } else if (route.name === 'Analytics') {
+                  iconName = focused ? 'stats-chart' : 'stats-chart-outline';
+                  gradientColors = ['#8b5cf6', '#7c3aed']; // Purple
+                } else if (route.name === 'Admin') {
+                  iconName = focused ? 'settings' : 'settings-outline';
+                  gradientColors = ['#ef4444', '#dc2626']; // Red
+                }
+
+                return <TabBarIcon iconName={iconName} focused={focused} colors={gradientColors} />;
               },
-              tabBarActiveTintColor: '#3b82f6',
-              tabBarInactiveTintColor: '#6b7280',
+              tabBarActiveTintColor: '#1f2937',
+              tabBarInactiveTintColor: '#9ca3af',
               tabBarStyle: {
-                position: 'absolute',
-                bottom: 0,
-                left: 0,
-                right: 0,
                 backgroundColor: '#ffffff',
                 borderTopColor: '#e5e7eb',
                 borderTopWidth: 1,
-                paddingBottom: 12,
-                paddingTop: 10,
-                height: 75,
+                paddingBottom: 8,
+                paddingTop: 12,
+                height: 80,
                 shadowColor: '#000',
                 shadowOffset: { width: 0, height: -4 },
                 shadowOpacity: 0.15,
@@ -159,12 +193,12 @@ export default function App() {
                 elevation: 12,
               },
               tabBarLabelStyle: {
-                fontSize: 12,
+                fontSize: 11,
                 fontWeight: '600',
-                marginBottom: 2,
+                marginTop: 4,
               },
               tabBarIconStyle: {
-                marginTop: 4,
+                marginBottom: 0,
               },
               headerShown: false,
             })}
