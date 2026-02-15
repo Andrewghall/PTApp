@@ -80,6 +80,14 @@ export const db = {
     return { data, error };
   },
 
+  getAllClients: async () => {
+    const { data, error} = await supabase
+      .from('client_profiles')
+      .select('id, first_name, last_name, email, gender')
+      .order('first_name');
+    return { data, error };
+  },
+
   // ── Credits ──
   getCreditBalance: async (clientId: string) => {
     const { data, error } = await supabase
@@ -200,12 +208,79 @@ export const db = {
   getClientBookings: async (clientId: string, status?: string) => {
     let query = supabase
       .from('bookings')
-      .select(`*, slots (id, start_time, end_time, location, capacity, booked_count)`)
+      .select(`*, slots (id, start_time, end_time, location, capacity, booked_count), block_bookings (id, notes)`)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
     if (status) query = query.eq('status', status);
     const { data, error } = await query;
     return { data, error };
+  },
+
+  // ── Block Bookings ──
+  createBlockBooking: async (
+    clientId: string,
+    startDate: string,
+    endDate: string,
+    dayOfWeek: number,
+    timeSlot: string,
+    durationMinutes: number = 60,
+    createdBy: string,
+    notes?: string
+  ) => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .insert([{
+        client_id: clientId,
+        start_date: startDate,
+        end_date: endDate,
+        day_of_week: dayOfWeek,
+        time_slot: timeSlot,
+        duration_minutes: durationMinutes,
+        created_by: createdBy,
+        notes,
+        status: 'active'
+      }])
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  getClientBlockBookings: async (clientId: string) => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('start_date', { ascending: false });
+    return { data, error };
+  },
+
+  getAllBlockBookings: async () => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .select(`
+        *,
+        client_profiles:client_id (id, first_name, last_name, email)
+      `)
+      .order('start_date', { ascending: false });
+    return { data, error };
+  },
+
+  updateBlockBookingStatus: async (blockBookingId: string, status: string) => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .update({ status, updated_at: new Date().toISOString() })
+      .eq('id', blockBookingId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  deleteBlockBooking: async (blockBookingId: string) => {
+    const { error } = await supabase
+      .from('block_bookings')
+      .delete()
+      .eq('id', blockBookingId);
+    return { error };
   },
 
   // ── Exercises ──

@@ -19,6 +19,7 @@ import MessagingScreen from './src/screens/MessagingScreen';
 import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
 import ReferralsScreen from './src/screens/ReferralsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
+import BlockBookingsScreen from './src/screens/BlockBookingsScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
@@ -47,6 +48,16 @@ function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: st
       <Stack.Screen name="Profile">
         {(props) => <ProfileScreen {...props} route={{ params: { userId } }} />}
       </Stack.Screen>
+    </Stack.Navigator>
+  );
+}
+
+// Admin Stack Navigator (includes BlockBookings screen)
+function AdminStack() {
+  return (
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="AdminHome" component={AdminScreen} />
+      <Stack.Screen name="BlockBookings" component={BlockBookingsScreen} />
     </Stack.Navigator>
   );
 }
@@ -207,7 +218,7 @@ export default function App() {
               options={{ title: 'Past Sessions' }}
             />
             <Tab.Screen name="Refer" component={ReferralsScreen} />
-            {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminScreen} />}
+            {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminStack} />}
           </Tab.Navigator>
         )}
       </NavigationContainer>

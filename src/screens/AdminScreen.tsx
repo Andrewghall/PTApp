@@ -326,6 +326,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                     </View>
                   </View>
 
+                  {/* Block Bookings Button */}
+                  <TouchableOpacity
+                    style={styles.blockBookingsButton}
+                    onPress={() => navigation.navigate('BlockBookings')}
+                  >
+                    <Ionicons name="repeat" size={24} color="white" />
+                    <Text style={styles.blockBookingsButtonText}>Manage Block Bookings</Text>
+                    <Ionicons name="chevron-forward" size={20} color="white" />
+                  </TouchableOpacity>
+
                   {/* Quick Stats */}
                   <View style={styles.quickStatsContainer}>
                     <Text style={styles.quickStatsTitle}>Quick Stats</Text>
@@ -615,6 +625,27 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  blockBookingsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#8b5cf6',
+    borderRadius: 12,
+    padding: 16,
+    marginVertical: 16,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  blockBookingsButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+    flex: 1,
   },
   section: {
     paddingHorizontal: 16,
