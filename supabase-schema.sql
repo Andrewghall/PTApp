@@ -167,6 +167,7 @@ CREATE TABLE programme_assignments (
 CREATE TABLE workouts (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id UUID REFERENCES client_profiles(id) ON DELETE CASCADE,
+  booking_id UUID REFERENCES bookings(id) ON DELETE SET NULL,
   date DATE NOT NULL,
   programme_id UUID REFERENCES programmes(id),
   completed BOOLEAN DEFAULT false,

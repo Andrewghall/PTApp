@@ -24,6 +24,7 @@ interface SessionHistoryScreenProps {
 const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<any[]>([]);
+  const [workouts, setWorkouts] = useState<any[]>([]);
   const [clientId, setClientId] = useState<string | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<any>(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
@@ -46,6 +47,10 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
       // Get all bookings
       const { data: allBookings } = await db.getClientBookings(profile.id);
 
+      // Get all workouts for this client
+      const { data: allWorkouts } = await db.getClientWorkouts(profile.id, 100);
+      setWorkouts(allWorkouts || []);
+
       if (allBookings) {
         // Filter to only show PAST sessions (history should not include future sessions)
         const now = new Date();
@@ -65,6 +70,14 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
     } finally {
       setLoading(false);
     }
+  };
+
+  const getWorkoutForSession = (booking: any) => {
+    // Get the date of the session
+    const sessionDate = format(new Date(booking.slots.start_time), 'yyyy-MM-dd');
+
+    // Find workout logged on this date
+    return workouts.find(w => w.date === sessionDate);
   };
 
   const viewSessionNotes = async (booking: any) => {
@@ -181,6 +194,8 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
             {bookings.map((booking) => {
               const status = getStatusBadge(booking);
               const isPastSession = isPast(new Date(booking.slots.start_time));
+              const workout = getWorkoutForSession(booking);
+              const exerciseCount = workout?.workout_exercises?.length || 0;
 
               return (
                 <TouchableOpacity
@@ -212,6 +227,22 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
                         {booking.slots.location || 'Elevate Gym'}
                       </Text>
                     </View>
+
+                    {workout ? (
+                      <View style={styles.sessionDetailRow}>
+                        <Ionicons name="barbell" size={16} color="#10b981" />
+                        <Text style={[styles.sessionDetailText, { color: '#10b981' }]}>
+                          {exerciseCount} exercise{exerciseCount !== 1 ? 's' : ''} logged
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.sessionDetailRow}>
+                        <Ionicons name="alert-circle" size={16} color="#f59e0b" />
+                        <Text style={[styles.sessionDetailText, { color: '#f59e0b' }]}>
+                          No workout logged
+                        </Text>
+                      </View>
+                    )}
 
                     {isPastSession && (
                       <View style={styles.sessionDetailRow}>
