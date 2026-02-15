@@ -191,31 +191,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         <View style={styles.actionsGrid}>
           <QuickActionCard
             icon="calendar"
-            title="Book"
-            subtitle="Schedule session"
+            title="Book Session"
+            subtitle="Schedule PT"
             onPress={() => navigation.navigate('Book')}
-            gradientColors={['#3b82f6', '#2563eb']}
+            color="#5B9FED"
           />
           <QuickActionCard
             icon="barbell"
-            title="Workout"
-            subtitle="Log training"
+            title="Log Workout"
+            subtitle="Track progress"
             onPress={() => navigation.navigate('Workout')}
-            gradientColors={['#10b981', '#059669']}
+            color="#5FD4A8"
           />
           <QuickActionCard
             icon="stats-chart"
-            title="Progress"
-            subtitle="View analytics"
+            title="View Progress"
+            subtitle="See analytics"
             onPress={() => navigation.navigate('Analytics')}
-            gradientColors={['#8b5cf6', '#7c3aed']}
+            color="#A78BFA"
           />
           <QuickActionCard
-            icon="chatbubbles"
-            title="Messages"
-            subtitle="Chat with PT"
+            icon="person"
+            title="Profile"
+            subtitle="Edit details"
             onPress={() => navigation.navigate('Messages')}
-            gradientColors={['#f59e0b', '#d97706']}
+            color="#F5A962"
           />
         </View>
 
@@ -254,18 +254,13 @@ const QuickActionCard: React.FC<{
   title: string;
   subtitle: string;
   onPress: () => void;
-  gradientColors: string[];
-}> = ({ icon, title, subtitle, onPress, gradientColors }) => (
+  color: string;
+}> = ({ icon, title, subtitle, onPress, color }) => (
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.actionCardInner}>
-      <LinearGradient
-        colors={gradientColors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.iconCircle}
-      >
-        <Ionicons name={icon as any} size={28} color="white" />
-      </LinearGradient>
+      <View style={[styles.iconCircle, { backgroundColor: color }]}>
+        <Ionicons name={icon as any} size={32} color="white" />
+      </View>
       <Text style={styles.actionTitle}>{title}</Text>
       <Text style={styles.actionSubtitle}>{subtitle}</Text>
     </View>
