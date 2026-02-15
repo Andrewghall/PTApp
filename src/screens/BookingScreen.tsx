@@ -215,7 +215,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
         <Text style={styles.headerTitle}>Book a Session</Text>
         <View style={styles.creditsHeader}>
           <Ionicons name="wallet" size={20} color="#3b82f6" />
-          <Text style={styles.creditsText}>{creditBalance} sessions</Text>
+          <Text style={styles.creditsText}>{creditBalance} sessions left</Text>
         </View>
       </View>
 
