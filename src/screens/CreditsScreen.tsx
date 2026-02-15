@@ -58,11 +58,11 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
   const handlePurchase = async (pack: any) => {
     if (!clientId) return;
 
-    // Convert from pence to pounds for display
+    // Convert from cents to euros for display
     const displayPrice = Math.round(Number(pack.price) / 100);
     Alert.alert(
       'Purchase Sessions',
-      `Buy ${pack.credits} sessions for £${displayPrice}?`,
+      `Buy ${pack.credits} sessions for €${displayPrice}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -75,7 +75,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
               await db.addCredits(
                 clientId,
                 pack.credits,
-                `Purchased ${pack.credits} session pack for £${displayPrice}`
+                `Purchased ${pack.credits} session pack for €${displayPrice}`
               );
 
               Alert.alert('Success!', `${pack.credits} sessions added to your account!`);
@@ -136,7 +136,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
           <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
-            // Database stores prices in pence (2500 = £25.00), convert to pounds
+            // Database stores prices in cents (2500 = €25.00), convert to euros
             const displayPrice = Math.round(Number(pack.price) / 100);
             const pricePerCredit = Math.round(displayPrice / pack.credits);
             const savings = hasDiscount
@@ -158,18 +158,18 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
                   <View style={styles.packInfo}>
                     <Text style={styles.packCredits}>{pack.credits} Sessions</Text>
                     <Text style={styles.packDescription}>
-                      £{pricePerCredit} per session
+                      €{pricePerCredit} per session
                     </Text>
                     {hasDiscount && (
-                      <Text style={styles.savingsText}>Save £{savings}!</Text>
+                      <Text style={styles.savingsText}>Save €{savings}!</Text>
                     )}
                   </View>
 
                   <View style={styles.packPricing}>
-                    <Text style={styles.packPrice}>£{displayPrice}</Text>
+                    <Text style={styles.packPrice}>€{displayPrice}</Text>
                     {hasDiscount && (
                       <Text style={styles.originalPrice}>
-                        £{(pack.credits * 25)}
+                        €{(pack.credits * 25)}
                       </Text>
                     )}
                   </View>
@@ -202,7 +202,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>How It Works</Text>
               <Text style={styles.infoText}>
-                • 1 session = £25{'\n'}
+                • 1 session = €25{'\n'}
                 • Sessions never expire{'\n'}
                 • Book anytime{'\n'}
                 • Cancel up to 48 hours before for full refund

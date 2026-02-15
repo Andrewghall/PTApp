@@ -202,7 +202,7 @@ const ReferralsScreen: React.FC<ReferralsScreenProps> = ({ navigation }) => {
             <View style={styles.stepContent}>
               <Text style={styles.stepTitle}>You Both Win!</Text>
               <Text style={styles.stepText}>
-                You each receive 1 free session (£25 value) added to your account
+                You each receive 1 free session (€25 value) added to your account
               </Text>
             </View>
           </View>
@@ -228,7 +228,7 @@ const ReferralsScreen: React.FC<ReferralsScreenProps> = ({ navigation }) => {
 
               <View style={styles.statCard}>
                 <Ionicons name="wallet" size={28} color="#3b82f6" />
-                <Text style={styles.statValue}>£{stats.totalEarned}</Text>
+                <Text style={styles.statValue}>€{stats.totalEarned}</Text>
                 <Text style={styles.statLabel}>Total Earned</Text>
               </View>
             </View>
@@ -260,7 +260,7 @@ const ReferralsScreen: React.FC<ReferralsScreenProps> = ({ navigation }) => {
 
                 {referral.status === 'completed' && (
                   <View style={styles.rewardBadge}>
-                    <Text style={styles.rewardText}>+£25</Text>
+                    <Text style={styles.rewardText}>+€25</Text>
                   </View>
                 )}
               </View>

@@ -301,7 +301,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                       <View style={[styles.kpiIconContainer, { backgroundColor: '#ecfdf5' }]}>
                         <Ionicons name="wallet" size={28} color="#10b981" />
                       </View>
-                      <Text style={styles.kpiValue}>£{businessMetrics.monthlyRevenue || 0}</Text>
+                      <Text style={styles.kpiValue}>€{businessMetrics.monthlyRevenue || 0}</Text>
                       <Text style={styles.kpiLabel}>Monthly Revenue</Text>
                     </View>
 
@@ -495,14 +495,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <View key={pack.id} style={styles.packCard}>
                 <View style={styles.packInfo}>
                   <Text style={styles.packCredits}>{pack.credits} Credits</Text>
-                  <Text style={styles.packPrice}>£{pack.price}</Text>
+                  <Text style={styles.packPrice}>€{pack.price}</Text>
                   {pack.discount_percent > 0 && (
                     <Text style={styles.packDiscount}>{pack.discount_percent}% off</Text>
                   )}
                 </View>
                 <View style={styles.packActions}>
                   <Text style={styles.packPerCredit}>
-                    £{(pack.price / pack.credits).toFixed(2)}/credit
+                    €{(pack.price / pack.credits).toFixed(2)}/credit
                   </Text>
                 </View>
               </View>
