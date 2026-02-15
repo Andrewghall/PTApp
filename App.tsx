@@ -33,7 +33,7 @@ const TabBarIcon = ({ iconName, focused }: { iconName: any; focused: boolean }) 
   );
 };
 
-// Dashboard Stack Navigator (includes Credits screen)
+// Dashboard Stack Navigator (includes Credits, Workout, Analytics screens)
 function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: string }) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -41,6 +41,8 @@ function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: st
         {(props) => <DashboardScreen {...props} onLogout={onLogout} userId={userId} />}
       </Stack.Screen>
       <Stack.Screen name="Credits" component={CreditsScreen} />
+      <Stack.Screen name="Workout" component={WorkoutScreen} />
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
     </Stack.Navigator>
   );
 }

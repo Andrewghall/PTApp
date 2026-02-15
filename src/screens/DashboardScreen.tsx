@@ -210,13 +210,6 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             onPress={() => navigation.navigate('Analytics')}
             color="#A78BFA"
           />
-          <QuickActionCard
-            icon="person-outline"
-            title="Profile"
-            subtitle="Edit details"
-            onPress={() => {}}
-            color="#F5A962"
-          />
         </View>
 
         {/* Recent Activity */}
