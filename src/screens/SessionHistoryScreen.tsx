@@ -43,12 +43,19 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
 
       setClientId(profile.id);
 
-      // Get all bookings (past and upcoming)
+      // Get all bookings
       const { data: allBookings } = await db.getClientBookings(profile.id);
 
       if (allBookings) {
+        // Filter to only show PAST sessions (history should not include future sessions)
+        const now = new Date();
+        const pastBookings = allBookings.filter(b => {
+          const sessionTime = new Date(b.slots.start_time);
+          return sessionTime < now;
+        });
+
         // Sort by date, most recent first
-        const sorted = allBookings.sort((a, b) => {
+        const sorted = pastBookings.sort((a, b) => {
           return new Date(b.slots.start_time).getTime() - new Date(a.slots.start_time).getTime();
         });
         setBookings(sorted);
@@ -130,7 +137,7 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Session History</Text>
           <Text style={styles.headerSubtitle}>
-            {bookings.length} total session{bookings.length !== 1 ? 's' : ''}
+            {bookings.length} past session{bookings.length !== 1 ? 's' : ''}
           </Text>
         </View>
 
