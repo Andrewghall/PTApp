@@ -37,10 +37,11 @@ interface WorkoutScreenProps {
   navigation: any;
 }
 
-const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation }) => {
+const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
   const [userGender, setUserGender] = useState<'male' | 'female'>('male');
   const [clientProfileId, setClientProfileId] = useState<string | null>(null);
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  // Use date from navigation params if provided, otherwise default to today
+  const [selectedDate, setSelectedDate] = useState(route?.params?.selectedDate || new Date());
   const [currentWorkoutId, setCurrentWorkoutId] = useState<string | null>(null);
   const [currentWeekWorkout, setCurrentWeekWorkout] = useState<any[]>([]);
   const [previousWorkouts, setPreviousWorkouts] = useState<any[]>([]);

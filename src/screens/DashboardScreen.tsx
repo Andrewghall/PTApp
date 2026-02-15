@@ -169,6 +169,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
               }
               return null;
             })()}
+            <TouchableOpacity
+              style={styles.planWorkoutButton}
+              onPress={() => {
+                // Navigate to Workout screen with the session date
+                const sessionDate = new Date(nextBooking.slots.start_time);
+                navigation.navigate('Workout', { selectedDate: sessionDate });
+              }}
+            >
+              <Ionicons name="barbell" size={20} color="white" />
+              <Text style={styles.planWorkoutButtonText}>Plan Workout</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.sessionCard}>
@@ -529,6 +540,21 @@ const styles = StyleSheet.create({
     color: '#f59e0b',
     marginLeft: 6,
     flex: 1,
+  },
+  planWorkoutButton: {
+    backgroundColor: '#10b981',
+    borderRadius: 8,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  planWorkoutButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 
