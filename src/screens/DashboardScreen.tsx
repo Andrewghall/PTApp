@@ -190,31 +190,31 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
           <QuickActionCard
-            icon="calendar"
+            icon="calendar-outline"
             title="Book Session"
             subtitle="Schedule PT"
             onPress={() => navigation.navigate('Book')}
             color="#5B9FED"
           />
           <QuickActionCard
-            icon="barbell"
+            icon="barbell-outline"
             title="Log Workout"
             subtitle="Track progress"
             onPress={() => navigation.navigate('Workout')}
             color="#5FD4A8"
           />
           <QuickActionCard
-            icon="stats-chart"
+            icon="stats-chart-outline"
             title="View Progress"
             subtitle="See analytics"
             onPress={() => navigation.navigate('Analytics')}
             color="#A78BFA"
           />
           <QuickActionCard
-            icon="person"
+            icon="person-outline"
             title="Profile"
             subtitle="Edit details"
-            onPress={() => navigation.navigate('Messages')}
+            onPress={() => {}}
             color="#F5A962"
           />
         </View>
@@ -259,7 +259,7 @@ const QuickActionCard: React.FC<{
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.actionCardInner}>
       <View style={[styles.iconCircle, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={32} color="white" />
+        <Ionicons name={icon as any} size={28} color="white" />
       </View>
       <Text style={styles.actionTitle}>{title}</Text>
       <Text style={styles.actionSubtitle}>{subtitle}</Text>
@@ -424,38 +424,38 @@ const styles = StyleSheet.create({
   actionCard: {
     width: '47%',
     backgroundColor: 'white',
-    borderRadius: 16,
+    borderRadius: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
   },
   actionCardInner: {
-    padding: 20,
+    padding: 24,
     alignItems: 'center',
-    minHeight: 160,
+    minHeight: 140,
     justifyContent: 'center',
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   actionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 15,
+    fontWeight: '600',
     color: '#1f2937',
-    marginBottom: 4,
+    marginBottom: 2,
     textAlign: 'center',
   },
   actionSubtitle: {
-    fontSize: 13,
-    color: '#6b7280',
-    fontWeight: '500',
+    fontSize: 12,
+    color: '#9ca3af',
+    fontWeight: '400',
     textAlign: 'center',
   },
   workoutsList: {
