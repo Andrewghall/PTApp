@@ -22,21 +22,15 @@ import ReferralsScreen from './src/screens/ReferralsScreen';
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Custom Tab Bar Icon with Gradient Circle
-const TabBarIcon = ({ iconName, focused, colors }: { iconName: any; focused: boolean; colors: string[] }) => {
-  if (focused) {
-    return (
-      <LinearGradient
-        colors={colors}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={{ width: 50, height: 50, borderRadius: 25, justifyContent: 'center', alignItems: 'center' }}
-      >
-        <Ionicons name={iconName} size={24} color="white" />
-      </LinearGradient>
-    );
-  }
-  return <Ionicons name={iconName} size={24} color="#9ca3af" />;
+// Custom Tab Bar Icon - Simple blue filled/gray outlined style
+const TabBarIcon = ({ iconName, focused }: { iconName: any; focused: boolean }) => {
+  return (
+    <Ionicons
+      name={iconName}
+      size={24}
+      color={focused ? '#3b82f6' : '#9ca3af'}
+    />
+  );
 };
 
 // Dashboard Stack Navigator (includes Credits screen)
@@ -147,37 +141,24 @@ export default function App() {
             screenOptions={({ route }) => ({
               tabBarIcon: ({ focused }) => {
                 let iconName: any;
-                let gradientColors: string[] = ['#3b82f6', '#2563eb'];
 
                 if (route.name === 'Dashboard') {
                   iconName = focused ? 'home' : 'home-outline';
-                  gradientColors = ['#3b82f6', '#2563eb']; // Blue
                 } else if (route.name === 'Book') {
                   iconName = focused ? 'calendar' : 'calendar-outline';
-                  gradientColors = ['#10b981', '#059669']; // Green
                 } else if (route.name === 'Messages') {
                   iconName = focused ? 'mail' : 'mail-outline';
-                  gradientColors = ['#f59e0b', '#d97706']; // Orange
                 } else if (route.name === 'History') {
                   iconName = focused ? 'time' : 'time-outline';
-                  gradientColors = ['#8b5cf6', '#7c3aed']; // Purple
                 } else if (route.name === 'Refer') {
                   iconName = focused ? 'gift' : 'gift-outline';
-                  gradientColors = ['#ec4899', '#db2777']; // Pink
-                } else if (route.name === 'Workout') {
-                  iconName = focused ? 'barbell' : 'barbell-outline';
-                  gradientColors = ['#10b981', '#059669']; // Green
-                } else if (route.name === 'Analytics') {
-                  iconName = focused ? 'stats-chart' : 'stats-chart-outline';
-                  gradientColors = ['#8b5cf6', '#7c3aed']; // Purple
                 } else if (route.name === 'Admin') {
                   iconName = focused ? 'settings' : 'settings-outline';
-                  gradientColors = ['#ef4444', '#dc2626']; // Red
                 }
 
-                return <TabBarIcon iconName={iconName} focused={focused} colors={gradientColors} />;
+                return <TabBarIcon iconName={iconName} focused={focused} />;
               },
-              tabBarActiveTintColor: '#1f2937',
+              tabBarActiveTintColor: '#3b82f6',
               tabBarInactiveTintColor: '#9ca3af',
               tabBarStyle: {
                 backgroundColor: '#ffffff',
@@ -216,8 +197,6 @@ export default function App() {
             />
             <Tab.Screen name="History" component={SessionHistoryScreen} />
             <Tab.Screen name="Refer" component={ReferralsScreen} />
-            <Tab.Screen name="Workout" component={WorkoutScreen} />
-            <Tab.Screen name="Analytics" component={AnalyticsScreen} />
             {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminScreen} />}
           </Tab.Navigator>
         )}
