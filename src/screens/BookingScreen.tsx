@@ -105,6 +105,13 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
   const handleCancelBooking = async (booking: any) => {
     if (!clientId) return;
 
+    // Get the slot_id - it might be nested or direct
+    const slotId = booking.slot_id || booking.slots?.id;
+    if (!slotId) {
+      Alert.alert('Error', 'Unable to cancel booking - slot information missing');
+      return;
+    }
+
     // Calculate hours until session
     const sessionTime = new Date(booking.slots.start_time);
     const now = new Date();
@@ -122,7 +129,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await db.cancelBooking(booking.id, booking.slot_id);
+                await db.cancelBooking(booking.id, slotId);
                 // No refund - client loses the session
                 Alert.alert('Cancelled', 'Session cancelled. No refund issued due to late cancellation.');
                 loadUserAndData();
@@ -145,7 +152,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await db.cancelBooking(booking.id, booking.slot_id);
+                await db.cancelBooking(booking.id, slotId);
                 await db.refundCredit(
                   clientId,
                   `Refund for cancelled booking on ${format(parseISO(booking.slots.start_time), 'MMM d')}`
