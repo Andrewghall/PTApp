@@ -4,8 +4,13 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Modal } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Modal, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+
+// Import CSS for web to fix scrolling
+if (Platform.OS === 'web') {
+  require('./App.css');
+}
 
 import { auth, supabase, db } from './src/lib/supabase';
 import LoginScreen from './src/screens/LoginScreen';
