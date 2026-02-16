@@ -268,15 +268,24 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
         {/* Header */}
         <View style={styles.header}>
-          <View>
+          <View style={styles.headerLeft}>
             <Text style={styles.headerTitle}>Messages</Text>
             <Text style={styles.headerSubtitle}>
               {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
             </Text>
           </View>
-          <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
-            <Ionicons name="create-outline" size={24} color="white" />
-          </TouchableOpacity>
+          {userRole === 'admin' ? (
+            <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
+              <Ionicons name="create-outline" size={24} color="white" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity onPress={startNewConversation} style={styles.messagePTButton}>
+              <Ionicons name="chatbubble" size={18} color="white" />
+              <Text style={styles.messagePTButtonText}>
+                Message {adminUser?.first_name || 'PT'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Conversations List */}
@@ -528,6 +537,9 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
+  headerLeft: {
+    flex: 1,
+  },
   newMessageButton: {
     backgroundColor: '#3b82f6',
     width: 48,
@@ -540,6 +552,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  messagePTButton: {
+    backgroundColor: '#10b981',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    gap: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  messagePTButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   headerTitle: {
     fontSize: 28,
