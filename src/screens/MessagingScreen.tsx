@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { db, auth, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
@@ -35,6 +36,10 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   const [showChatModal, setShowChatModal] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [totalUnreadCount, setTotalUnreadCount] = useState(0);
+  const [showClientSelector, setShowClientSelector] = useState(false);
+  const [allClients, setAllClients] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
@@ -68,19 +73,47 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
       if (profile) {
         setUserRole(profile.role);
+
+        // If admin, load all clients for starting new conversations
+        if (profile.role === 'admin') {
+          const { data: clients } = await supabase
+            .from('client_profiles')
+            .select(`
+              id,
+              first_name,
+              last_name,
+              profiles!inner (id, email, role)
+            `)
+            .order('first_name');
+
+          if (clients) {
+            setAllClients(clients.map((c: any) => ({
+              id: c.profiles.id,
+              first_name: c.first_name,
+              last_name: c.last_name,
+              email: c.profiles.email,
+              role: 'client'
+            })));
+          }
+        }
       }
 
       // If client, get the admin user for starting new conversations
       if (profile?.role === 'client') {
         const { data: admin } = await supabase
           .from('profiles')
-          .select('id, email, first_name, last_name, role')
+          .select('id, email, role')
           .eq('role', 'admin')
           .limit(1)
           .single();
 
         if (admin) {
-          setAdminUser(admin);
+          // Set admin user with friendly display name
+          setAdminUser({
+            ...admin,
+            first_name: 'Your',
+            last_name: 'PT',
+          });
         }
       }
 
@@ -124,6 +157,10 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
         });
 
         setConversations(convArray);
+
+        // Calculate total unread count
+        const totalUnread = convArray.reduce((sum, conv) => sum + conv.unreadCount, 0);
+        setTotalUnreadCount(totalUnread);
       }
     } catch (error) {
       console.error('Error loading messages:', error);
@@ -133,15 +170,30 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   };
 
   const startNewConversation = () => {
-    if (!adminUser) return;
+    if (userRole === 'client') {
+      if (!adminUser) return;
+      // Create a conversation object for the admin/PT
+      setSelectedConversation({
+        user: adminUser,
+        userId: adminUser.id,
+        lastMessage: null,
+        unreadCount: 0,
+      });
+      setShowChatModal(true);
+    } else {
+      // Admin - show client selector
+      setShowClientSelector(true);
+    }
+  };
 
-    // Create a conversation object for the admin/PT
+  const startConversationWithClient = (client: any) => {
     setSelectedConversation({
-      user: adminUser,
-      userId: adminUser.id,
+      user: client,
+      userId: client.id,
       lastMessage: null,
       unreadCount: 0,
     });
+    setShowClientSelector(false);
     setShowChatModal(true);
   };
 
@@ -198,40 +250,51 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hero Banner */}
-      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+      <View style={styles.contentWrapper}>
+        {/* Hero Banner */}
+        <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Messages</Text>
-          <Text style={styles.headerSubtitle}>
-            {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
-          </Text>
+        {/* Navigation Bar */}
+        <View style={styles.navigationBar}>
+          <HamburgerButton onPress={() => setMenuVisible(true)} />
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#1f2937" />
+            <Text style={styles.backButtonText}>Back</Text>
+          </TouchableOpacity>
         </View>
-        {userRole === 'client' && adminUser && (
+
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.headerTitle}>Messages</Text>
+            <Text style={styles.headerSubtitle}>
+              {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
+            </Text>
+          </View>
           <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
             <Ionicons name="create-outline" size={24} color="white" />
           </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Conversations List */}
-      {conversations.length === 0 ? (
-        <View style={styles.emptyState}>
-          <Ionicons name="chatbubbles-outline" size={64} color="#d1d5db" />
-          <Text style={styles.emptyStateText}>No messages yet</Text>
-          <Text style={styles.emptyStateSubtext}>
-            {userRole === 'admin'
-              ? 'Messages from clients will appear here'
-              : 'Start a conversation with your PT'}
-          </Text>
         </View>
-      ) : (
-        <FlatList
-          data={conversations}
-          keyExtractor={(item) => item.userId}
-          renderItem={({ item }) => (
+
+        {/* Conversations List */}
+        {conversations.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name="chatbubbles-outline" size={64} color="#d1d5db" />
+            <Text style={styles.emptyStateText}>No messages yet</Text>
+            <Text style={styles.emptyStateSubtext}>
+              {userRole === 'admin'
+                ? 'Messages from clients will appear here'
+                : 'Start a conversation with your PT'}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={conversations}
+            keyExtractor={(item) => item.userId}
+            renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.conversationCard}
               onPress={() => openConversation(item)}
@@ -274,7 +337,49 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
           )}
           contentContainerStyle={styles.listContent}
         />
-      )}
+        )}
+      </View>
+
+      {/* Client Selector Modal (Admin Only) */}
+      <Modal
+        visible={showClientSelector}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowClientSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.clientSelectorContainer}>
+            <View style={styles.clientSelectorHeader}>
+              <Text style={styles.clientSelectorTitle}>Select Client</Text>
+              <TouchableOpacity onPress={() => setShowClientSelector(false)}>
+                <Ionicons name="close" size={28} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={allClients}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.clientSelectorItem}
+                  onPress={() => startConversationWithClient(item)}
+                >
+                  <View style={styles.clientSelectorAvatar}>
+                    <Ionicons name="person" size={24} color="#3b82f6" />
+                  </View>
+                  <View style={styles.clientSelectorInfo}>
+                    <Text style={styles.clientSelectorName}>
+                      {item.first_name} {item.last_name}
+                    </Text>
+                    <Text style={styles.clientSelectorEmail}>{item.email}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                </TouchableOpacity>
+              )}
+              contentContainerStyle={styles.clientSelectorList}
+            />
+          </View>
+        </View>
+      </Modal>
 
       {/* Chat Modal */}
       <Modal
@@ -360,6 +465,18 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
           </KeyboardAvoidingView>
         </SafeAreaView>
       </Modal>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole={userRole}
+        unreadCount={totalUnreadCount}
+      />
     </SafeAreaView>
   );
 };
@@ -367,17 +484,40 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
+  },
+  contentWrapper: {
+    flex: 1,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   heroBanner: {
     width: '100%',
     height: 160,
+  },
+  navigationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '500',
   },
   header: {
     padding: 20,
@@ -494,7 +634,7 @@ const styles = StyleSheet.create({
   },
   chatContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   chatHeader: {
     flexDirection: 'row',
@@ -585,6 +725,64 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#9ca3af',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  clientSelectorContainer: {
+    width: '90%',
+    maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  clientSelectorHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  clientSelectorTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  clientSelectorList: {
+    padding: 8,
+  },
+  clientSelectorItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  clientSelectorAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  clientSelectorInfo: {
+    flex: 1,
+  },
+  clientSelectorName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 2,
+  },
+  clientSelectorEmail: {
+    fontSize: 14,
+    color: '#6b7280',
   },
 });
 

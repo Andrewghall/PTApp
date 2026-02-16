@@ -13,8 +13,9 @@ import {
   Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase, db } from '../lib/supabase';
+import { supabase, db, auth } from '../lib/supabase';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
@@ -35,6 +36,18 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [businessMetrics, setBusinessMetrics] = useState<any>(null);
   const [newPack, setNewPack] = useState({ credits: '', price: '', discount: '' });
   const [creating, setCreating] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showAdjustCreditsModal, setShowAdjustCreditsModal] = useState(false);
+  const [adjustCreditsAmount, setAdjustCreditsAmount] = useState('');
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [showEditPackModal, setShowEditPackModal] = useState(false);
+  const [selectedPack, setSelectedPack] = useState<any>(null);
+  const [editPackForm, setEditPackForm] = useState({ credits: '', price: '', discount: '' });
+
+  // Slot management state
+  const [showSlotModal, setShowSlotModal] = useState(false);
+  const [selectedSlot, setSelectedSlot] = useState<any>(null);
+  const [slotForm, setSlotForm] = useState({ startTime: '', endTime: '', capacity: '' });
 
   useEffect(() => {
     loadAdminData();
@@ -139,51 +152,52 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   };
 
   const adjustClientCredits = (client: any) => {
-    Alert.prompt(
-      'Adjust Credits',
-      `Current balance: ${client.credit_balances?.balance || 0}\nEnter credits to add (use negative to subtract):`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Add',
-          onPress: async (value) => {
-            const amount = parseInt(value || '0');
-            if (isNaN(amount) || amount === 0) return;
+    setSelectedClient(client);
+    setAdjustCreditsAmount('');
+    setShowAdjustCreditsModal(true);
+  };
 
-            try {
-              if (amount > 0) {
-                await db.addCredits(client.id, amount, `Admin adjustment: +${amount}`);
-              } else {
-                // Subtract credits
-                const { data: bal } = await supabase
-                  .from('credit_balances')
-                  .select('balance')
-                  .eq('client_id', client.id)
-                  .single();
-                const current = bal?.balance || 0;
-                await supabase
-                  .from('credit_balances')
-                  .update({ balance: Math.max(0, current + amount) })
-                  .eq('client_id', client.id);
-                await supabase.from('credit_transactions').insert([
-                  {
-                    client_id: client.id,
-                    type: 'consume',
-                    amount,
-                    description: `Admin adjustment: ${amount}`,
-                  },
-                ]);
-              }
-              Alert.alert('Success', 'Credits adjusted');
-              loadAdminData();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to adjust credits');
-            }
+  const handleAdjustCredits = async () => {
+    if (!selectedClient) return;
+
+    const amount = parseInt(adjustCreditsAmount || '0');
+    if (isNaN(amount) || amount === 0) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number');
+      return;
+    }
+
+    try {
+      if (amount > 0) {
+        await db.addCredits(selectedClient.id, amount, `Admin adjustment: +${amount}`);
+      } else {
+        // Subtract credits
+        const { data: bal } = await supabase
+          .from('credit_balances')
+          .select('balance')
+          .eq('client_id', selectedClient.id)
+          .single();
+        const current = bal?.balance || 0;
+        await supabase
+          .from('credit_balances')
+          .update({ balance: Math.max(0, current + amount) })
+          .eq('client_id', selectedClient.id);
+        await supabase.from('credit_transactions').insert([
+          {
+            client_id: selectedClient.id,
+            type: 'consume',
+            amount,
+            description: `Admin adjustment: ${amount}`,
           },
-        },
-      ],
-      'plain-text'
-    );
+        ]);
+      }
+      Alert.alert('Success', 'Credits adjusted');
+      setShowAdjustCreditsModal(false);
+      setSelectedClient(null);
+      setAdjustCreditsAmount('');
+      loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to adjust credits');
+    }
   };
 
   const handleCreatePack = async () => {
@@ -213,6 +227,116 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     }
   };
 
+  const handleEditPack = (pack: any) => {
+    setSelectedPack(pack);
+    setEditPackForm({
+      credits: pack.credits.toString(),
+      price: (pack.price / 100).toString(), // Convert cents to euros for display
+      discount: pack.discount_percent?.toString() || '0'
+    });
+    setShowEditPackModal(true);
+  };
+
+  const handleUpdatePack = async () => {
+    if (!selectedPack || !editPackForm.credits || !editPackForm.price) {
+      Alert.alert('Error', 'Please fill in credits and price');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { error } = await supabase
+        .from('credit_packs')
+        .update({
+          credits: parseInt(editPackForm.credits),
+          price: parseFloat(editPackForm.price) * 100, // Convert euros to cents
+          discount_percent: parseFloat(editPackForm.discount || '0')
+        })
+        .eq('id', selectedPack.id);
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Credit pack updated!');
+      setShowEditPackModal(false);
+      setSelectedPack(null);
+      setEditPackForm({ credits: '', price: '', discount: '' });
+      await loadAdminData(); // Refresh packs list
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update pack');
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  // Slot management handlers
+  const handleEditSlot = (slot: any) => {
+    setSelectedSlot(slot);
+    setSlotForm({
+      startTime: format(new Date(slot.start_time), 'yyyy-MM-dd\'T\'HH:mm'),
+      endTime: format(new Date(slot.end_time), 'yyyy-MM-dd\'T\'HH:mm'),
+      capacity: slot.capacity.toString()
+    });
+    setShowSlotModal(true);
+  };
+
+  const handleUpdateSlot = async () => {
+    if (!selectedSlot) return;
+
+    try {
+      const updates: any = {};
+
+      if (slotForm.capacity !== selectedSlot.capacity.toString()) {
+        updates.capacity = parseInt(slotForm.capacity);
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error } = await db.updateSlot(selectedSlot.id, updates);
+        if (error) throw error;
+      }
+
+      // Check if times changed for reschedule
+      const newStartTime = new Date(slotForm.startTime).toISOString();
+      const newEndTime = new Date(slotForm.endTime).toISOString();
+
+      if (newStartTime !== selectedSlot.start_time || newEndTime !== selectedSlot.end_time) {
+        const { error } = await db.rescheduleSlot(selectedSlot.id, newStartTime, newEndTime);
+        if (error) throw error;
+      }
+
+      Alert.alert('Success', 'Slot updated successfully');
+      setShowSlotModal(false);
+      setSelectedSlot(null);
+      await loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update slot');
+    }
+  };
+
+  const handleDeleteSlot = (slot: any) => {
+    Alert.alert(
+      'Delete Slot',
+      `This slot has ${slot.booked_count} booking(s). Are you sure you want to delete it?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await db.deleteSlot(slot.id);
+              if (error) throw error;
+
+              Alert.alert('Success', 'Slot deleted successfully');
+              await loadAdminData();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete slot');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -221,88 +345,69 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     );
   }
 
+  const getActiveTabTitle = () => {
+    switch (activeTab) {
+      case 'overview': return 'Overview';
+      case 'schedule': return 'Schedule';
+      case 'clients': return 'Clients';
+      case 'packs': return 'Pricing';
+      default: return 'Admin Portal';
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
-      {/* Back Button */}
-      <View style={styles.backButtonContainer}>
+      {/* Header with Menu */}
+      <View style={styles.headerContainer}>
+        <HamburgerButton onPress={() => setMenuVisible(true)} />
+        <View style={styles.headerTextContainer}>
+          <Text style={styles.headerTitle}>{getActiveTabTitle()}</Text>
+          <Text style={styles.headerSubtitle}>Admin Portal</Text>
+        </View>
         <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
+          style={styles.menuButton}
+          onPress={() => setShowMenu(!showMenu)}
         >
-          <Ionicons name="arrow-back" size={24} color="#1f2937" />
-          <Text style={styles.backButtonText}>Back</Text>
+          <Ionicons name="filter" size={24} color="#1f2937" />
         </TouchableOpacity>
       </View>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Admin Portal</Text>
-        <Text style={styles.headerSubtitle}>PT Business Management</Text>
-      </View>
-
-      {/* Tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.tabsContainer}
-        contentContainerStyle={styles.tabs}
-      >
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Ionicons
-            name="stats-chart"
-            size={20}
-            color={activeTab === 'overview' ? '#3b82f6' : '#9ca3af'}
-          />
-          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>
-            Overview
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
-          onPress={() => setActiveTab('schedule')}
-        >
-          <Ionicons
-            name="calendar"
-            size={20}
-            color={activeTab === 'schedule' ? '#3b82f6' : '#9ca3af'}
-          />
-          <Text style={[styles.tabText, activeTab === 'schedule' && styles.tabTextActive]}>
-            Schedule
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'clients' && styles.tabActive]}
-          onPress={() => setActiveTab('clients')}
-        >
-          <Ionicons
-            name="people"
-            size={20}
-            color={activeTab === 'clients' ? '#3b82f6' : '#9ca3af'}
-          />
-          <Text style={[styles.tabText, activeTab === 'clients' && styles.tabTextActive]}>
-            Clients
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'packs' && styles.tabActive]}
-          onPress={() => setActiveTab('packs')}
-        >
-          <Ionicons
-            name="pricetag"
-            size={20}
-            color={activeTab === 'packs' ? '#3b82f6' : '#9ca3af'}
-          />
-          <Text style={[styles.tabText, activeTab === 'packs' && styles.tabTextActive]}>
-            Pricing
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
+      {/* Dropdown Menu */}
+      {showMenu && (
+        <View style={styles.dropdownMenu}>
+          <TouchableOpacity
+            style={[styles.menuItem, activeTab === 'overview' && styles.menuItemActive]}
+            onPress={() => { setActiveTab('overview'); setShowMenu(false); }}
+          >
+            <Ionicons name="stats-chart" size={20} color={activeTab === 'overview' ? '#3b82f6' : '#6b7280'} />
+            <Text style={[styles.menuItemText, activeTab === 'overview' && styles.menuItemTextActive]}>Overview</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, activeTab === 'schedule' && styles.menuItemActive]}
+            onPress={() => { setActiveTab('schedule'); setShowMenu(false); }}
+          >
+            <Ionicons name="calendar" size={20} color={activeTab === 'schedule' ? '#3b82f6' : '#6b7280'} />
+            <Text style={[styles.menuItemText, activeTab === 'schedule' && styles.menuItemTextActive]}>Schedule</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, activeTab === 'clients' && styles.menuItemActive]}
+            onPress={() => { setActiveTab('clients'); setShowMenu(false); }}
+          >
+            <Ionicons name="people" size={20} color={activeTab === 'clients' ? '#3b82f6' : '#6b7280'} />
+            <Text style={[styles.menuItemText, activeTab === 'clients' && styles.menuItemTextActive]}>Clients</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.menuItem, activeTab === 'packs' && styles.menuItemActive]}
+            onPress={() => { setActiveTab('packs'); setShowMenu(false); }}
+          >
+            <Ionicons name="pricetag" size={20} color={activeTab === 'packs' ? '#3b82f6' : '#6b7280'} />
+            <Text style={[styles.menuItemText, activeTab === 'packs' && styles.menuItemTextActive]}>Pricing</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Overview Tab */}
@@ -343,16 +448,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                       <Text style={styles.kpiLabel}>Attendance Rate</Text>
                     </View>
 
-                    {/* Gender Split */}
-                    <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: '#fae8ff' }]}>
-                        <Ionicons name="analytics" size={28} color="#a855f7" />
-                      </View>
-                      <Text style={styles.kpiValueSmall}>
-                        M:{businessMetrics.genderSplit?.male || 0} F:{businessMetrics.genderSplit?.female || 0}
-                      </Text>
-                      <Text style={styles.kpiLabel}>Gender Split</Text>
-                    </View>
                   </View>
 
                   {/* Block Bookings Button */}
@@ -362,6 +457,26 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                   >
                     <Ionicons name="repeat" size={24} color="white" />
                     <Text style={styles.blockBookingsButtonText}>Manage Block Bookings</Text>
+                    <Ionicons name="chevron-forward" size={20} color="white" />
+                  </TouchableOpacity>
+
+                  {/* Programme Assignments Button */}
+                  <TouchableOpacity
+                    style={[styles.blockBookingsButton, { backgroundColor: '#8b5cf6' }]}
+                    onPress={() => navigation.navigate('ProgrammeAssignments')}
+                  >
+                    <Ionicons name="fitness" size={24} color="white" />
+                    <Text style={styles.blockBookingsButtonText}>Programme Assignments</Text>
+                    <Ionicons name="chevron-forward" size={20} color="white" />
+                  </TouchableOpacity>
+
+                  {/* Client Messages Button */}
+                  <TouchableOpacity
+                    style={[styles.blockBookingsButton, { backgroundColor: '#10b981' }]}
+                    onPress={() => navigation.navigate('Messages')}
+                  >
+                    <Ionicons name="chatbubbles" size={24} color="white" />
+                    <Text style={styles.blockBookingsButtonText}>Client Messages</Text>
                     <Ionicons name="chevron-forward" size={20} color="white" />
                   </TouchableOpacity>
 
@@ -391,61 +506,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                     </View>
                   </View>
 
-                  {/* Gender Breakdown */}
-                  <View style={styles.genderBreakdownContainer}>
-                    <Text style={styles.genderBreakdownTitle}>Client Demographics</Text>
-                    <View style={styles.genderBars}>
-                      <View style={styles.genderBarRow}>
-                        <Text style={styles.genderLabel}>Male</Text>
-                        <View style={styles.genderBarTrack}>
-                          <View
-                            style={[
-                              styles.genderBarFill,
-                              {
-                                width: `${(businessMetrics.genderSplit?.male / businessMetrics.totalClients * 100) || 0}%`,
-                                backgroundColor: '#3b82f6'
-                              }
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.genderValue}>{businessMetrics.genderSplit?.male || 0}</Text>
-                      </View>
-
-                      <View style={styles.genderBarRow}>
-                        <Text style={styles.genderLabel}>Female</Text>
-                        <View style={styles.genderBarTrack}>
-                          <View
-                            style={[
-                              styles.genderBarFill,
-                              {
-                                width: `${(businessMetrics.genderSplit?.female / businessMetrics.totalClients * 100) || 0}%`,
-                                backgroundColor: '#ec4899'
-                              }
-                            ]}
-                          />
-                        </View>
-                        <Text style={styles.genderValue}>{businessMetrics.genderSplit?.female || 0}</Text>
-                      </View>
-
-                      {businessMetrics.genderSplit?.other > 0 && (
-                        <View style={styles.genderBarRow}>
-                          <Text style={styles.genderLabel}>Other</Text>
-                          <View style={styles.genderBarTrack}>
-                            <View
-                              style={[
-                                styles.genderBarFill,
-                                {
-                                  width: `${(businessMetrics.genderSplit?.other / businessMetrics.totalClients * 100) || 0}%`,
-                                  backgroundColor: '#a855f7'
-                                }
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.genderValue}>{businessMetrics.genderSplit?.other || 0}</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
                 </>
               ) : (
                 <View style={styles.emptyMetrics}>
@@ -486,6 +546,20 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                     </Text>
                     <Text style={styles.slotLabel}>booked</Text>
                   </View>
+                  <View style={styles.slotActions}>
+                    <TouchableOpacity
+                      onPress={() => handleEditSlot(slot)}
+                      style={styles.slotActionButtonEdit}
+                    >
+                      <Text style={styles.slotActionButtonEditText}>Edit</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      onPress={() => handleDeleteSlot(slot)}
+                      style={styles.slotActionButtonDelete}
+                    >
+                      <Text style={styles.slotActionButtonDeleteText}>Delete</Text>
+                    </TouchableOpacity>
+                  </View>
                 </View>
               ))}
             </View>
@@ -504,19 +578,30 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                   </Text>
                   <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
                   <View style={styles.clientCredits}>
-                    <Ionicons name="wallet" size={16} color="#3b82f6" />
-                    <Text style={styles.clientCreditsText}>
+                    <Ionicons name="wallet" size={16} color={(client.credit_balances?.balance || 0) <= 2 ? "#ef4444" : "#3b82f6"} />
+                    <Text style={[
+                      styles.clientCreditsText,
+                      (client.credit_balances?.balance || 0) <= 2 && { color: "#ef4444", fontWeight: "600" }
+                    ]}>
                       {client.credit_balances?.balance || 0} credits
+                      {(client.credit_balances?.balance || 0) <= 2 && " ⚠️"}
                     </Text>
                   </View>
                 </View>
-                <TouchableOpacity
-                  style={styles.adjustButton}
-                  onPress={() => adjustClientCredits(client)}
-                >
-                  <Ionicons name="create-outline" size={20} color="#3b82f6" />
-                  <Text style={styles.adjustButtonText}>Adjust</Text>
-                </TouchableOpacity>
+                <View style={styles.clientActions}>
+                  <TouchableOpacity
+                    style={styles.viewDetailsButton}
+                    onPress={() => navigation.navigate('ClientDetails', { clientId: client.id })}
+                  >
+                    <Text style={styles.viewDetailsButtonText}>View Details</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.adjustButton}
+                    onPress={() => adjustClientCredits(client)}
+                  >
+                    <Text style={styles.adjustButtonText}>Adjust Credits</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             ))}
           </View>
@@ -534,15 +619,19 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <View key={pack.id} style={styles.packCard}>
                 <View style={styles.packInfo}>
                   <Text style={styles.packCredits}>{pack.credits} Credits</Text>
-                  <Text style={styles.packPrice}>€{pack.price}</Text>
+                  <Text style={styles.packPrice}>€{Math.round(pack.price / 100)}</Text>
                   {pack.discount_percent > 0 && (
                     <Text style={styles.packDiscount}>{pack.discount_percent}% off</Text>
                   )}
                 </View>
                 <View style={styles.packActions}>
-                  <Text style={styles.packPerCredit}>
-                    €{(pack.price / pack.credits).toFixed(2)}/credit
-                  </Text>
+                  <Text style={styles.packPerCredit}>€25/session</Text>
+                  <TouchableOpacity
+                    style={styles.editPackButton}
+                    onPress={() => handleEditPack(pack)}
+                  >
+                    <Text style={styles.editPackButtonText}>Edit</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -557,6 +646,58 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Adjust Credits Modal */}
+      <Modal visible={showAdjustCreditsModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Adjust Credits</Text>
+              <TouchableOpacity onPress={() => setShowAdjustCreditsModal(false)}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              {selectedClient && (
+                <>
+                  <Text style={styles.clientModalName}>
+                    {selectedClient.first_name} {selectedClient.last_name}
+                  </Text>
+                  <Text style={styles.currentBalanceText}>
+                    Current Balance: {selectedClient.credit_balances?.balance || 0} credits
+                  </Text>
+                </>
+              )}
+
+              <Text style={styles.inputLabel}>Credits to Add/Subtract *</Text>
+              <Text style={styles.inputHint}>Use positive numbers to add, negative to subtract (e.g., -5)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 10 or -5"
+                keyboardType="numeric"
+                value={adjustCreditsAmount}
+                onChangeText={setAdjustCreditsAmount}
+              />
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowAdjustCreditsModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCreateButton}
+                onPress={handleAdjustCredits}
+              >
+                <Text style={styles.modalCreateButtonText}>Adjust Credits</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Add Pack Modal */}
       <Modal visible={showAddPackModal} animationType="slide" transparent={true}>
@@ -620,6 +761,139 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Edit Pack Modal */}
+      <Modal visible={showEditPackModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Credit Pack</Text>
+              <TouchableOpacity onPress={() => setShowEditPackModal(false)}>
+                <Text style={styles.closeButtonText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Number of Credits *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 10"
+                keyboardType="number-pad"
+                value={editPackForm.credits}
+                onChangeText={(text) => setEditPackForm({...editPackForm, credits: text})}
+              />
+
+              <Text style={styles.inputLabel}>Price (€) *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 50"
+                keyboardType="decimal-pad"
+                value={editPackForm.price}
+                onChangeText={(text) => setEditPackForm({...editPackForm, price: text})}
+              />
+
+              <Text style={styles.inputLabel}>Discount %</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 10"
+                keyboardType="number-pad"
+                value={editPackForm.discount}
+                onChangeText={(text) => setEditPackForm({...editPackForm, discount: text})}
+              />
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowEditPackModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCreateButton}
+                onPress={handleUpdatePack}
+                disabled={creating}
+              >
+                {creating ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.modalCreateButtonText}>Update Pack</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Edit Slot Modal */}
+      <Modal visible={showSlotModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Edit Slot</Text>
+
+            <Text style={styles.inputLabel}>Start Time</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={slotForm.startTime}
+              onChangeText={(text) => setSlotForm({ ...slotForm, startTime: text })}
+              placeholder="YYYY-MM-DD HH:MM"
+            />
+
+            <Text style={styles.inputLabel}>End Time</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={slotForm.endTime}
+              onChangeText={(text) => setSlotForm({ ...slotForm, endTime: text })}
+              placeholder="YYYY-MM-DD HH:MM"
+            />
+
+            <Text style={styles.inputLabel}>Capacity</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={slotForm.capacity}
+              onChangeText={(text) => setSlotForm({ ...slotForm, capacity: text })}
+              placeholder="6"
+              keyboardType="number-pad"
+            />
+
+            {selectedSlot && selectedSlot.booked_count > 0 && (
+              <Text style={styles.warningText}>
+                ⚠️ This slot has {selectedSlot.booked_count} booking(s). Clients will be notified of changes.
+              </Text>
+            )}
+
+            <View style={styles.modalButtonGroup}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => {
+                  setShowSlotModal(false);
+                  setSelectedSlot(null);
+                }}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCreateButton}
+                onPress={handleUpdateSlot}
+              >
+                <Text style={styles.modalCreateButtonText}>Update Slot</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole="admin"
+        unreadCount={0}
+      />
     </SafeAreaView>
   );
 };
@@ -627,85 +901,107 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
+    backgroundColor: '#F1F5F9',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  header: {
-    backgroundColor: '#1f2937',
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: 'white',
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: '#9ca3af',
-    marginTop: 4,
-  },
-  tabsContainer: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  tabs: {
-    flexDirection: 'row',
-    backgroundColor: 'white',
-  },
-  tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    gap: 6,
-  },
-  tabActive: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#3b82f6',
-  },
-  tabText: {
-    fontSize: 14,
-    color: '#9ca3af',
-    fontWeight: '500',
-  },
-  tabTextActive: {
-    color: '#3b82f6',
-    fontWeight: '600',
+    backgroundColor: '#F1F5F9',
   },
   heroBanner: {
     width: '100%',
     height: 160,
   },
-  backButtonContainer: {
+  headerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  backButton: {
+  menuButton: {
+    padding: 8,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  hamburgerIcon: {
+    width: 24,
+    height: 18,
+    justifyContent: 'space-between',
+  },
+  hamburgerLine: {
+    width: 24,
+    height: 3,
+    backgroundColor: '#1f2937',
+    borderRadius: 2,
+  },
+  headerTextContainer: {
+    flex: 1,
+    marginLeft: 16,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  headerSubtitle: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  dropdownMenu: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    paddingVertical: 14,
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
-  backButtonText: {
+  menuItemActive: {
+    backgroundColor: '#eff6ff',
+  },
+  menuItemText: {
     fontSize: 16,
-    color: '#1f2937',
-    marginLeft: 8,
+    color: '#6b7280',
     fontWeight: '500',
+  },
+  menuItemTextActive: {
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   scrollView: {
     flex: 1,
+    paddingTop: 16,
   },
   actionBar: {
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 12,
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   primaryButton: {
     flexDirection: 'row',
@@ -743,8 +1039,16 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
+    marginHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
@@ -786,6 +1090,7 @@ const styles = StyleSheet.create({
   },
   slotStats: {
     alignItems: 'flex-end',
+    marginRight: 8,
   },
   slotBooked: {
     fontSize: 20,
@@ -795,6 +1100,41 @@ const styles = StyleSheet.create({
   slotLabel: {
     fontSize: 12,
     color: '#9ca3af',
+  },
+  slotActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  slotActionButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: '#f3f4f6',
+  },
+  slotActionButtonEdit: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  slotActionButtonEditText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
+  },
+  slotActionButtonDelete: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  slotActionButtonDeleteText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ef4444',
   },
   clientCard: {
     flexDirection: 'row',
@@ -834,14 +1174,30 @@ const styles = StyleSheet.create({
     color: '#3b82f6',
     fontWeight: '500',
   },
-  adjustButton: {
+  clientActions: {
     flexDirection: 'row',
-    alignItems: 'center',
+    gap: 8,
+  },
+  viewDetailsButton: {
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  viewDetailsButtonText: {
+    fontSize: 14,
+    color: '#1f2937',
+    fontWeight: '600',
+  },
+  adjustButton: {
     backgroundColor: '#eff6ff',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    gap: 4,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
   },
   adjustButtonText: {
     fontSize: 14,
@@ -884,10 +1240,24 @@ const styles = StyleSheet.create({
   },
   packActions: {
     alignItems: 'flex-end',
+    gap: 8,
   },
   packPerCredit: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  editPackButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  editPackButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   addPackButton: {
     flexDirection: 'row',
@@ -986,55 +1356,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
   },
-  genderBreakdownContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  genderBreakdownTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 16,
-  },
-  genderBars: {
-    gap: 12,
-  },
-  genderBarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  genderLabel: {
-    width: 60,
-    fontSize: 14,
-    color: '#4b5563',
-    fontWeight: '500',
-  },
-  genderBarTrack: {
-    flex: 1,
-    height: 24,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 12,
-    overflow: 'hidden',
-  },
-  genderBarFill: {
-    height: '100%',
-    borderRadius: 12,
-  },
-  genderValue: {
-    width: 32,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-    textAlign: 'right',
-  },
   emptyMetrics: {
     paddingVertical: 60,
     alignItems: 'center',
@@ -1093,6 +1414,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: 'white',
   },
+  warningText: {
+    fontSize: 13,
+    color: '#f59e0b',
+    backgroundColor: '#fffbeb',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: '#fde68a',
+  },
+  modalButtonGroup: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
@@ -1124,6 +1463,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  closeButtonText: {
+    fontSize: 28,
+    color: '#6b7280',
+    fontWeight: '300',
+  },
+  clientModalName: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 8,
+  },
+  currentBalanceText: {
+    fontSize: 15,
+    color: '#6b7280',
+    marginBottom: 20,
+  },
+  inputHint: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginTop: 4,
+    marginBottom: 8,
   },
 });
 

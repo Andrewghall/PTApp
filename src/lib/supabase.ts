@@ -208,7 +208,7 @@ export const db = {
   getClientBookings: async (clientId: string, status?: string) => {
     let query = supabase
       .from('bookings')
-      .select(`*, slots (id, start_time, end_time, location, capacity, booked_count), block_bookings (id, notes)`)
+      .select(`*, slots (id, start_time, end_time, location, capacity, booked_count)`)
       .eq('client_id', clientId)
       .order('created_at', { ascending: false });
     if (status) query = query.eq('status', status);
@@ -281,6 +281,63 @@ export const db = {
       .delete()
       .eq('id', blockBookingId);
     return { error };
+  },
+
+  extendBlockBooking: async (blockBookingId: string, newEndDate: string) => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .update({ end_date: newEndDate, updated_at: new Date().toISOString() })
+      .eq('id', blockBookingId)
+      .select()
+      .single();
+
+    // Trigger will automatically generate new bookings for the extended period
+    return { data, error };
+  },
+
+  updateBlockBookingDay: async (blockBookingId: string, newDayOfWeek: number, newTimeSlot: string) => {
+    const { data, error } = await supabase
+      .from('block_bookings')
+      .update({
+        day_of_week: newDayOfWeek,
+        time_slot: newTimeSlot,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', blockBookingId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  // Admin booking without credit deduction
+  createAdminBooking: async (slotId: string, clientId: string) => {
+    // Insert booking without deducting credit
+    const { data, error } = await supabase
+      .from('bookings')
+      .insert([{
+        slot_id: slotId,
+        client_id: clientId,
+        status: 'booked',
+        credits_used: 0  // Admin bookings don't deduct credits immediately
+      }])
+      .select()
+      .single();
+    if (error) return { data, error };
+
+    // Increment booked_count on slot
+    const { data: slot } = await supabase.from('slots').select('booked_count').eq('id', slotId).single();
+    await supabase.from('slots').update({ booked_count: (slot?.booked_count ?? 0) + 1 }).eq('id', slotId);
+    return { data, error: null };
+  },
+
+  // Check if client has low credits (2 or fewer)
+  hasLowCredits: async (clientId: string): Promise<boolean> => {
+    const { data } = await supabase
+      .from('credit_balances')
+      .select('balance')
+      .eq('client_id', clientId)
+      .single();
+    return (data?.balance ?? 0) <= 2;
   },
 
   // ── Workout Management ──
@@ -436,6 +493,56 @@ export const db = {
     return { data, error };
   },
 
+  getAllProgrammes: async () => {
+    const { data, error } = await supabase
+      .from('programmes')
+      .select(`
+        *,
+        programme_exercises (
+          *,
+          exercises ( name, category )
+        )
+      `)
+      .eq('is_active', true)
+      .order('name');
+    return { data, error };
+  },
+
+  assignProgrammeToClient: async (clientId: string, programmeId: string, notes?: string) => {
+    const { data, error } = await supabase
+      .from('programme_assignments')
+      .insert([{ client_id: clientId, programme_id: programmeId, notes: notes || null, is_active: true }])
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  unassignProgrammeFromClient: async (assignmentId: string) => {
+    const { data, error } = await supabase
+      .from('programme_assignments')
+      .update({ is_active: false, updated_at: new Date().toISOString() })
+      .eq('id', assignmentId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  getAllProgrammeAssignments: async () => {
+    const { data, error } = await supabase
+      .from('programme_assignments')
+      .select(`
+        *,
+        client_profiles (
+          id,
+          profiles ( first_name, last_name, email )
+        ),
+        programmes ( name, description )
+      `)
+      .eq('is_active', true)
+      .order('assigned_at', { ascending: false });
+    return { data, error };
+  },
+
   // ── Credit Packs ──
   getCreditPacks: async () => {
     const { data, error } = await supabase
@@ -476,11 +583,39 @@ export const db = {
   },
 
   sendMessage: async (senderId: string, recipientId: string, content: string) => {
-    return await supabase
+    // Send the message
+    const { data: message, error: messageError } = await supabase
       .from('messages')
       .insert([{ sender_id: senderId, recipient_id: recipientId, content }])
       .select()
       .single();
+
+    if (messageError) return { data: null, error: messageError };
+
+    // Create a notification for the recipient
+    try {
+      // Get sender info
+      const { data: senderProfile } = await supabase
+        .from('profiles')
+        .select('email, role')
+        .eq('id', senderId)
+        .single();
+
+      const senderName = senderProfile?.role === 'admin' ? 'Your PT' : 'Client';
+      const truncatedContent = content.length > 50 ? content.substring(0, 50) + '...' : content;
+
+      await supabase.from('slot_notifications').insert([{
+        client_id: recipientId,
+        notification_type: 'new_message',
+        message: `${senderName}: ${truncatedContent}`,
+        read: false,
+      }]);
+    } catch (notifError) {
+      console.error('Failed to create notification:', notifError);
+      // Don't fail the message send if notification fails
+    }
+
+    return { data: message, error: null };
   },
 
   markMessageAsRead: async (messageId: string) => {
@@ -580,6 +715,25 @@ export const db = {
       .from('waitlist')
       .delete()
       .eq('id', waitlistId);
+  },
+
+  leaveWaitlist: async (waitlistId: string) => {
+    return await supabase
+      .from('waitlist')
+      .delete()
+      .eq('id', waitlistId);
+  },
+
+  getClientWaitlist: async (clientId: string) => {
+    return await supabase
+      .from('waitlist')
+      .select(`
+        *,
+        slots:slot_id(id, start_time, end_time, location)
+      `)
+      .eq('client_id', clientId)
+      .eq('status', 'waiting')
+      .order('created_at', { ascending: false });
   },
 
   // ── REFERRALS ──
@@ -808,6 +962,39 @@ export const db = {
       },
       error: null
     };
+  },
+
+  // ── NOTIFICATIONS ──
+  getClientNotifications: async (clientId: string) => {
+    return await supabase
+      .from('slot_notifications')
+      .select('*')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false });
+  },
+
+  getUnreadNotificationCount: async (clientId: string) => {
+    const { count } = await supabase
+      .from('slot_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('client_id', clientId)
+      .eq('read', false);
+    return { count };
+  },
+
+  markNotificationAsRead: async (notificationId: string) => {
+    return await supabase
+      .from('slot_notifications')
+      .update({ read: true, read_at: new Date().toISOString() })
+      .eq('id', notificationId);
+  },
+
+  markAllNotificationsAsRead: async (clientId: string) => {
+    return await supabase
+      .from('slot_notifications')
+      .update({ read: true, read_at: new Date().toISOString() })
+      .eq('client_id', clientId)
+      .eq('read', false);
   },
 };
 

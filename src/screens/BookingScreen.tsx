@@ -14,6 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { db, supabase, auth } from '../lib/supabase';
 import { format, addDays, startOfWeek, isSameDay, parseISO } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
@@ -32,6 +33,12 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
   const [creditBalance, setCreditBalance] = useState(0);
   const [clientId, setClientId] = useState<string | null>(null);
   const [bookingLoading, setBookingLoading] = useState(false);
+  const [myWaitlist, setMyWaitlist] = useState<any[]>([]);
+  const [showNoCreditsModal, setShowNoCreditsModal] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState({ date: '', time: '', remaining: 0 });
 
   useEffect(() => {
     loadUserAndData();
@@ -44,6 +51,16 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
         const { data: profile } = await db.getClientProfile(session.user.id);
         if (profile) {
           setClientId(profile.id);
+
+          // Get user role
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .single();
+          if (userProfile?.role) {
+            setUserRole(userProfile.role);
+          }
 
           // Load credit balance
           const { data: credits } = await db.getCreditBalance(profile.id);
@@ -61,6 +78,10 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
           // Load my bookings
           const { data: bookingsData } = await db.getClientBookings(profile.id);
           setMyBookings(bookingsData || []);
+
+          // Load my waitlist
+          const { data: waitlistData } = await db.getClientWaitlist(profile.id);
+          setMyWaitlist(waitlistData || []);
         }
       }
     } catch (error) {
@@ -71,32 +92,84 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
   };
 
   const handleBookSlot = async () => {
-    if (!clientId || !selectedSlot) return;
+    console.log('=== BOOKING ATTEMPT ===');
+    console.log('Client ID:', clientId);
+    console.log('Selected Slot:', selectedSlot);
+    console.log('Credit Balance (UI state):', creditBalance);
 
-    if (creditBalance < 1) {
-      Alert.alert('No Sessions Available', 'You need to purchase sessions before booking.');
+    if (!clientId || !selectedSlot) {
+      console.log('Missing clientId or selectedSlot');
+      Alert.alert('Error', 'Missing client or slot information. Please try again.');
       return;
     }
 
     setBookingLoading(true);
     try {
-      // Create booking
-      const { error: bookingError } = await db.createBooking(selectedSlot.id, clientId);
-      if (bookingError) throw bookingError;
+      // CRITICAL: Check actual balance from database RIGHT NOW
+      const { data: currentBalance } = await db.getCreditBalance(clientId);
+      const actualBalance = currentBalance?.balance || 0;
+      console.log('ACTUAL credit balance from DB:', actualBalance);
 
-      // Deduct credit
+      if (actualBalance < 1) {
+        console.log('Insufficient credits - actual balance:', actualBalance);
+        setShowConfirmModal(false);
+        setShowNoCreditsModal(true);
+        setBookingLoading(false);
+        return;
+      }
+
+      console.log('Deducting credit FIRST (before booking)...');
+      // DEDUCT CREDIT FIRST - this will fail if balance is insufficient
       const { error: creditError } = await db.deductCredit(
         clientId,
         `Booking for ${format(parseISO(selectedSlot.start_time), 'MMM d, h:mm a')}`
       );
-      if (creditError) throw creditError;
+      if (creditError) {
+        console.error('Credit deduction error:', creditError);
+        if (creditError.message?.includes('No credits')) {
+          setShowConfirmModal(false);
+          setShowNoCreditsModal(true);
+          setBookingLoading(false);
+          return;
+        }
+        throw creditError;
+      }
+      console.log('Credit deducted successfully');
 
-      Alert.alert('Success', 'Session booked successfully!');
+      console.log('Creating booking...');
+      // NOW create booking (credit already deducted)
+      const { error: bookingError } = await db.createBooking(selectedSlot.id, clientId);
+      if (bookingError) {
+        console.error('Booking error:', bookingError);
+        // CRITICAL: Refund the credit if booking fails!
+        await db.refundCredit(clientId, `Refund - booking failed for ${format(parseISO(selectedSlot.start_time), 'MMM d')}`);
+        throw bookingError;
+      }
+      console.log('Booking created successfully');
+
+      // Calculate new balance and save message data
+      const newBalance = creditBalance - 1;
+      const sessionDate = format(parseISO(selectedSlot.start_time), 'EEEE, MMM d');
+      const sessionTime = format(parseISO(selectedSlot.start_time), 'h:mm a');
+
+      // Close confirm modal first
       setShowConfirmModal(false);
       setSelectedSlot(null);
-      loadUserAndData(); // Refresh data
+
+      // Reload data
+      await loadUserAndData();
+
+      // Set success message data and show success modal
+      setSuccessMessage({
+        date: sessionDate,
+        time: sessionTime,
+        remaining: newBalance
+      });
+      setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to book session');
+      console.error('Booking failed:', error);
+      Alert.alert('Booking Failed', error.message || 'Failed to book session. Please try again.');
+      setShowConfirmModal(false);
     } finally {
       setBookingLoading(false);
     }
@@ -186,6 +259,54 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
     return slot.capacity - (slot.booked_count || 0);
   };
 
+  const isOnWaitlist = (slotId: string) => {
+    return myWaitlist.some((w) => w.slot_id === slotId && w.status === 'waiting');
+  };
+
+  const handleJoinWaitlist = async (slot: any) => {
+    if (!clientId) return;
+
+    try {
+      const { error } = await db.joinWaitlist(slot.id, clientId);
+      if (error) throw error;
+
+      Alert.alert('Success', 'You\'ve been added to the waitlist! We\'ll notify you if a spot opens up.');
+      loadUserAndData(); // Refresh data
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to join waitlist');
+    }
+  };
+
+  const handleLeaveWaitlist = async (slotId: string) => {
+    if (!clientId) return;
+
+    const waitlistEntry = myWaitlist.find(w => w.slot_id === slotId);
+    if (!waitlistEntry) return;
+
+    Alert.alert(
+      'Leave Waitlist',
+      'Are you sure you want to leave the waitlist?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Leave',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const { error } = await db.leaveWaitlist(waitlistEntry.id);
+              if (error) throw error;
+
+              Alert.alert('Success', 'You\'ve been removed from the waitlist');
+              loadUserAndData();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to leave waitlist');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -199,8 +320,9 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
-      {/* Back Button */}
-      <View style={styles.backButtonContainer}>
+      {/* Navigation Bar */}
+      <View style={styles.navigationBar}>
+        <HamburgerButton onPress={() => setMenuVisible(true)} />
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -226,7 +348,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             onPress={() => setCurrentWeek(addDays(currentWeek, -7))}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-back" size={28} color="#1f2937" />
+            <Text style={styles.navButtonText}>Previous</Text>
           </TouchableOpacity>
           <Text style={styles.weekText}>
             {format(startOfWeek(currentWeek, { weekStartsOn: 1 }), 'MMM d')} -{' '}
@@ -236,7 +358,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             onPress={() => setCurrentWeek(addDays(currentWeek, 7))}
             style={styles.navButton}
           >
-            <Ionicons name="chevron-forward" size={28} color="#1f2937" />
+            <Text style={styles.navButtonText}>Next</Text>
           </TouchableOpacity>
         </View>
 
@@ -250,48 +372,75 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
                 daySlots.map((slot) => {
                   const available = getSlotAvailability(slot);
                   const booked = isSlotBooked(slot.id);
+                  const onWaitlist = isOnWaitlist(slot.id);
+                  const isFull = available === 0;
+
                   return (
-                    <TouchableOpacity
-                      key={slot.id}
-                      style={[
-                        styles.slotCard,
-                        booked && styles.slotCardBooked,
-                        available === 0 && styles.slotCardFull,
-                      ]}
-                      onPress={() => {
-                        if (!booked && available > 0) {
-                          setSelectedSlot(slot);
-                          setShowConfirmModal(true);
-                        }
-                      }}
-                      disabled={booked || available === 0}
-                    >
-                      <View style={styles.slotInfo}>
-                        <Ionicons
-                          name={booked ? 'checkmark-circle' : 'time-outline'}
-                          size={24}
-                          color={booked ? '#10b981' : available > 0 ? '#3b82f6' : '#9ca3af'}
-                        />
-                        <View style={styles.slotDetails}>
-                          <Text style={styles.slotTime}>
-                            {format(parseISO(slot.start_time), 'h:mm a')} -{' '}
-                            {format(parseISO(slot.end_time), 'h:mm a')}
-                          </Text>
-                          <Text style={styles.slotLocation}>
-                            {slot.location || 'Elevate Gym'}
-                          </Text>
+                    <View key={slot.id} style={styles.slotWrapper}>
+                      <TouchableOpacity
+                        style={[
+                          styles.slotCard,
+                          booked && styles.slotCardBooked,
+                          isFull && styles.slotCardFull,
+                        ]}
+                        onPress={() => {
+                          if (!booked && available > 0) {
+                            setSelectedSlot(slot);
+                            setShowConfirmModal(true);
+                          }
+                        }}
+                        disabled={booked || isFull}
+                      >
+                        <View style={styles.slotInfo}>
+                          <Ionicons
+                            name={booked ? 'checkmark-circle' : 'time-outline'}
+                            size={24}
+                            color={booked ? '#10b981' : available > 0 ? '#3b82f6' : '#9ca3af'}
+                          />
+                          <View style={styles.slotDetails}>
+                            <Text style={styles.slotTime}>
+                              {format(parseISO(slot.start_time), 'h:mm a')} -{' '}
+                              {format(parseISO(slot.end_time), 'h:mm a')}
+                            </Text>
+                            <Text style={styles.slotLocation}>
+                              {slot.location || 'Elevate Gym'}
+                            </Text>
+                          </View>
                         </View>
-                      </View>
-                      <View style={styles.slotStatus}>
-                        {booked ? (
-                          <Text style={styles.statusBooked}>Booked</Text>
-                        ) : available > 0 ? (
-                          <Text style={styles.statusAvailable}>{available} spots left</Text>
-                        ) : (
-                          <Text style={styles.statusFull}>Full</Text>
-                        )}
-                      </View>
-                    </TouchableOpacity>
+                        <View style={styles.slotStatus}>
+                          {booked ? (
+                            <Text style={styles.statusBooked}>Booked</Text>
+                          ) : available > 0 ? (
+                            <Text style={styles.statusAvailable}>{available} spots left</Text>
+                          ) : (
+                            <Text style={styles.statusFull}>Full</Text>
+                          )}
+                        </View>
+                      </TouchableOpacity>
+
+                      {/* Waitlist button for full slots */}
+                      {!booked && isFull && (
+                        <TouchableOpacity
+                          style={[
+                            styles.waitlistButton,
+                            onWaitlist && styles.waitlistButtonActive
+                          ]}
+                          onPress={() => onWaitlist ? handleLeaveWaitlist(slot.id) : handleJoinWaitlist(slot)}
+                        >
+                          <Ionicons
+                            name={onWaitlist ? 'checkmark-circle' : 'list'}
+                            size={16}
+                            color={onWaitlist ? '#10b981' : '#f59e0b'}
+                          />
+                          <Text style={[
+                            styles.waitlistButtonText,
+                            onWaitlist && styles.waitlistButtonTextActive
+                          ]}>
+                            {onWaitlist ? 'On Waitlist' : 'Join Waitlist'}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   );
                 })
               ) : (
@@ -388,6 +537,78 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* No Credits Modal */}
+      <Modal visible={showNoCreditsModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.noCreditsIconContainer}>
+              <Ionicons name="card-outline" size={64} color="#ef4444" />
+            </View>
+            <Text style={styles.modalTitle}>No Credits Available</Text>
+            <Text style={styles.noCreditsMessage}>
+              You have no credits to make a booking. Please buy more credits to book a session.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalButtonCancel}
+                onPress={() => {
+                  setShowNoCreditsModal(false);
+                  setSelectedSlot(null);
+                }}
+              >
+                <Text style={styles.modalButtonCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalButtonConfirm}
+                onPress={() => {
+                  setShowNoCreditsModal(false);
+                  setSelectedSlot(null);
+                  navigation.navigate('Credits');
+                }}
+              >
+                <Text style={styles.modalButtonConfirmText}>Buy Credits</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal visible={showSuccessModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={80} color="#10b981" />
+            </View>
+            <Text style={styles.modalTitle}>Booking Confirmed! ✅</Text>
+            <Text style={styles.successMessage}>
+              Your session on {successMessage.date} at {successMessage.time} has been booked.
+            </Text>
+            <Text style={styles.remainingCredits}>
+              Remaining Credits: {successMessage.remaining}
+            </Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={() => setShowSuccessModal(false)}
+            >
+              <Text style={styles.successButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole={userRole}
+        unreadCount={0}
+      />
     </SafeAreaView>
   );
 };
@@ -395,13 +616,18 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   heroBanner: {
     width: '100%',
     height: 160,
   },
-  backButtonContainer: {
+  navigationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -409,7 +635,6 @@ const styles = StyleSheet.create({
   backButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
     paddingVertical: 12,
   },
   backButtonText: {
@@ -422,7 +647,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   header: {
     flexDirection: 'row',
@@ -466,15 +691,14 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   navButton: {
-    padding: 12,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    borderWidth: 2,
-    borderColor: '#1f2937',
-    minWidth: 48,
-    height: 48,
+    padding: 8,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  navButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   weekText: {
     fontSize: 16,
@@ -490,6 +714,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
     marginBottom: 12,
+  },
+  slotWrapper: {
+    marginBottom: 8,
   },
   slotCard: {
     flexDirection: 'row',
@@ -622,6 +849,31 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     marginTop: 12,
   },
+  waitlistButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: 8,
+    gap: 6,
+  },
+  waitlistButtonActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  waitlistButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#f59e0b',
+  },
+  waitlistButtonTextActive: {
+    color: '#10b981',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -693,6 +945,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalButtonConfirmText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+  },
+  noCreditsIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  noCreditsMessage: {
+    fontSize: 15,
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  successIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#1f2937',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 12,
+  },
+  remainingCredits: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#3b82f6',
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  successButton: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+  },
+  successButtonText: {
     fontSize: 16,
     color: 'white',
     fontWeight: '600',

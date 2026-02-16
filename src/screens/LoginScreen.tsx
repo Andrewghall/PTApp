@@ -301,7 +301,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   scrollView: {
     flex: 1,

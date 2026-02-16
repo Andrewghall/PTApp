@@ -12,8 +12,9 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { db, auth } from '../lib/supabase';
+import { db, auth, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner and exercise images
 const logoBanner = require('../../logo banner.png');
@@ -54,6 +55,10 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
   });
   const [availableExercises, setAvailableExercises] = useState<any[]>([]);
   const [saving, setSaving] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pendingExercise, setPendingExercise] = useState<any>(null);
 
   useEffect(() => {
     loadData();
@@ -85,6 +90,16 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       if (profile) {
         setClientProfileId(profile.id);
         setUserGender(profile.gender || 'male');
+
+        // Get user role
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', session.user.id)
+          .single();
+        if (userProfile?.role) {
+          setUserRole(userProfile.role);
+        }
         // Load workout for selected date
         await loadWorkoutForDate(profile.id);
         // Load previous workouts
@@ -198,8 +213,20 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
         { id: '4', name: 'Overhead Press', category: 'Shoulders', imageKey: 'OverheadPress' },
       ];
 
-  const addExerciseToWorkout = async (exercise: any) => {
-    if (!clientProfileId) return;
+  const showExerciseConfirmation = (exercise: any) => {
+    // Validate inputs
+    if (!newExercise.sets || !newExercise.weight) {
+      Alert.alert('Missing Information', 'Please enter both sets and weight');
+      return;
+    }
+
+    // Store the exercise for confirmation
+    setPendingExercise(exercise);
+    setShowConfirmModal(true);
+  };
+
+  const addExerciseToWorkout = async () => {
+    if (!clientProfileId || !pendingExercise) return;
 
     try {
       // Create workout if it doesn't exist for this date
@@ -213,7 +240,7 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       }
 
       // Find exercise in database to get its ID
-      const dbExercise = availableExercises.find(e => e.name === exercise.name);
+      const dbExercise = availableExercises.find(e => e.name === pendingExercise.name);
       if (!dbExercise) {
         Alert.alert('Error', 'Exercise not found in database');
         return;
@@ -244,16 +271,21 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       // Add to UI
       const workoutExercise = {
         id: workoutExerciseData.id,
-        name: exercise.name,
+        name: pendingExercise.name,
         sets: setsInput,
         weight: `${weight}kg`,
         type: newExercise.type || 'normal',
         notes: newExercise.notes,
-        imageKey: exercise.imageKey,
+        imageKey: pendingExercise.imageKey,
       };
       setCurrentWeekWorkout([...currentWeekWorkout, workoutExercise]);
+
+      // Reset state
+      setShowConfirmModal(false);
       setShowAddExercise(false);
+      setPendingExercise(null);
       setNewExercise({ sets: '', weight: '', notes: '', type: 'normal' });
+
       Alert.alert('Success', 'Exercise saved to workout!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to add exercise');
@@ -292,8 +324,9 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
-      {/* Back Button */}
-      <View style={styles.backButtonContainer}>
+      {/* Navigation Bar */}
+      <View style={styles.navigationBar}>
+        <HamburgerButton onPress={() => setMenuVisible(true)} />
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -467,7 +500,7 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
                 <TouchableOpacity
                   key={exercise.id}
                   style={styles.exerciseOption}
-                  onPress={() => addExerciseToWorkout(exercise)}
+                  onPress={() => showExerciseConfirmation(exercise)}
                 >
                   <View style={styles.exerciseOptionRow}>
                     <Image source={getExerciseImage(exercise.imageKey)} style={styles.exerciseOptionImage} />
@@ -482,6 +515,92 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.confirmModalOverlay}>
+          <View style={styles.confirmModalContent}>
+            <Text style={styles.confirmModalTitle}>Confirm Exercise</Text>
+
+            {pendingExercise && (
+              <View style={styles.confirmExerciseDetails}>
+                <Image
+                  source={getExerciseImage(pendingExercise.imageKey)}
+                  style={styles.confirmExerciseImage}
+                  resizeMode="contain"
+                />
+                <Text style={styles.confirmExerciseName}>{pendingExercise.name}</Text>
+
+                <View style={styles.confirmDetailRow}>
+                  <Ionicons name="barbell" size={20} color="#3b82f6" />
+                  <Text style={styles.confirmDetailText}>
+                    <Text style={styles.confirmDetailLabel}>Sets: </Text>
+                    {newExercise.sets || '3x10'}
+                  </Text>
+                </View>
+
+                <View style={styles.confirmDetailRow}>
+                  <Ionicons name="fitness" size={20} color="#10b981" />
+                  <Text style={styles.confirmDetailText}>
+                    <Text style={styles.confirmDetailLabel}>Weight: </Text>
+                    {newExercise.weight || '60kg'}
+                  </Text>
+                </View>
+
+                <View style={styles.confirmDetailRow}>
+                  <Ionicons name="flash" size={20} color="#f59e0b" />
+                  <Text style={styles.confirmDetailText}>
+                    <Text style={styles.confirmDetailLabel}>Type: </Text>
+                    {(newExercise.type || 'normal').charAt(0).toUpperCase() + (newExercise.type || 'normal').slice(1)}
+                  </Text>
+                </View>
+
+                {newExercise.notes && (
+                  <View style={styles.confirmDetailRow}>
+                    <Ionicons name="document-text" size={20} color="#6b7280" />
+                    <Text style={styles.confirmDetailText}>
+                      <Text style={styles.confirmDetailLabel}>Notes: </Text>
+                      {newExercise.notes}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <View style={styles.confirmModalButtons}>
+              <TouchableOpacity
+                style={styles.confirmCancelButton}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.confirmCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.confirmAddButton}
+                onPress={addExerciseToWorkout}
+              >
+                <Text style={styles.confirmAddButtonText}>Add to Workout</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole={userRole}
+        unreadCount={0}
+      />
     </SafeAreaView>
   );
 };
@@ -489,13 +608,18 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   heroBanner: {
     width: '100%',
     height: 160,
   },
-  backButtonContainer: {
+  navigationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
@@ -796,6 +920,90 @@ const styles = StyleSheet.create({
   exerciseOptionCategory: {
     fontSize: 14,
     color: '#6b7280',
+  },
+  confirmModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  confirmModalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '85%',
+    maxWidth: 400,
+  },
+  confirmModalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  confirmExerciseDetails: {
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  confirmExerciseImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 16,
+  },
+  confirmExerciseName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 20,
+  },
+  confirmDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  confirmDetailText: {
+    fontSize: 16,
+    color: '#1f2937',
+    marginLeft: 12,
+    flex: 1,
+  },
+  confirmDetailLabel: {
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  confirmModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  confirmCancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    alignItems: 'center',
+  },
+  confirmCancelButtonText: {
+    fontSize: 16,
+    color: '#6b7280',
+    fontWeight: '600',
+  },
+  confirmAddButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: '#3b82f6',
+    alignItems: 'center',
+  },
+  confirmAddButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
   },
 });
 

@@ -15,9 +15,16 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { db, supabase } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
+
+// Import custom action icons
+const bookSessionIcon = require('../../BookSession-SchedulePT.png');
+const logWorkoutIcon = require('../../LogWorkout-KeepTrack.png');
+const viewProgressIcon = require('../../ViewProgress-Analytics.png');
+const profileIcon = require('../../Profile-Editdetails.png');
 
 interface DashboardScreenProps {
   navigation: any;
@@ -33,6 +40,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
   const [nextBooking, setNextBooking] = useState<any>(null);
   const [recentWorkouts, setRecentWorkouts] = useState<any[]>([]);
   const [userName, setUserName] = useState('');
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [upcomingBookings, setUpcomingBookings] = useState<any[]>([]);
+  const [showAllSessions, setShowAllSessions] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
@@ -46,24 +58,54 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         setClientProfile(profile);
         setUserName(`${profile.first_name} ${profile.last_name}`);
 
+        // Get user role from profiles table
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        if (userProfile?.role) {
+          setUserRole(userProfile.role);
+        }
+
         // Get credit balance
         const { data: credits } = await db.getCreditBalance(profile.id);
         setCreditBalance(credits?.balance || 0);
 
-        // Get next upcoming booking
+        // Get all upcoming bookings (next 30 days)
         const { data: bookings } = await db.getClientBookings(profile.id, 'booked');
+
         if (bookings && bookings.length > 0) {
+          const now = new Date();
+          const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+          // Filter for upcoming sessions in next 30 days
           const upcoming = bookings
-            .filter((b: any) => b.slots && new Date(b.slots.start_time) > new Date())
+            .filter((b: any) => {
+              if (!b.slots) return false;
+              const sessionTime = new Date(b.slots.start_time);
+              return sessionTime > now && sessionTime <= thirtyDaysFromNow;
+            })
             .sort((a: any, b: any) => new Date(a.slots.start_time).getTime() - new Date(b.slots.start_time).getTime());
+
+          setUpcomingBookings(upcoming);
           if (upcoming.length > 0) {
             setNextBooking(upcoming[0]);
+          } else {
+            setNextBooking(null);
           }
+        } else {
+          setUpcomingBookings([]);
+          setNextBooking(null);
         }
 
         // Get recent workouts
         const { data: workouts } = await db.getClientWorkouts(profile.id, 5);
         setRecentWorkouts(workouts || []);
+
+        // Get unread notification count
+        const { count } = await db.getUnreadNotificationCount(profile.id);
+        setUnreadNotifications(count || 0);
       }
     } catch (error) {
       console.error('Error loading dashboard:', error);
@@ -156,12 +198,17 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
     <SafeAreaView style={styles.container}>
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={{ paddingBottom: 100 }}
+        contentContainerStyle={styles.contentContainer}
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
         {/* Hero Banner */}
         <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+        {/* Hamburger Menu Button */}
+        <View style={styles.hamburgerContainer}>
+          <HamburgerButton onPress={() => setMenuVisible(true)} />
+        </View>
 
         {/* Header */}
         <View style={styles.header}>
@@ -169,9 +216,24 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             <Text style={styles.greeting}>Welcome back!</Text>
             <Text style={styles.userName}>{userName}</Text>
           </View>
-          <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
-            <Ionicons name="log-out-outline" size={24} color="#dc2626" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('Notifications')}
+              style={styles.notificationButton}
+            >
+              <Ionicons name="notifications-outline" size={24} color="#1f2937" />
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationBadge}>
+                  <Text style={styles.notificationBadgeText}>
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
+              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Credits Card */}
@@ -273,36 +335,111 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
           </View>
         )}
 
+        {/* All Upcoming Sessions Dropdown */}
+        {upcomingBookings.length > 0 && (
+          <View style={styles.upcomingSessionsCard}>
+            <TouchableOpacity
+              style={styles.upcomingSessionsHeader}
+              onPress={() => setShowAllSessions(!showAllSessions)}
+            >
+              <View style={styles.upcomingSessionsHeaderLeft}>
+                <Ionicons name="list" size={20} color="#3b82f6" />
+                <Text style={styles.upcomingSessionsTitle}>
+                  All Upcoming Sessions ({upcomingBookings.length})
+                </Text>
+              </View>
+              <Ionicons
+                name={showAllSessions ? 'chevron-up' : 'chevron-down'}
+                size={24}
+                color="#6b7280"
+              />
+            </TouchableOpacity>
+
+            {showAllSessions && (
+              <View style={styles.upcomingSessionsList}>
+                {upcomingBookings.map((booking, index) => (
+                  <View key={booking.id} style={styles.upcomingSessionItem}>
+                    <View style={styles.sessionItemLeft}>
+                      <View style={styles.sessionDateBadge}>
+                        <Text style={styles.sessionDateDay}>
+                          {format(new Date(booking.slots.start_time), 'd')}
+                        </Text>
+                        <Text style={styles.sessionDateMonth}>
+                          {format(new Date(booking.slots.start_time), 'MMM')}
+                        </Text>
+                      </View>
+                      <View style={styles.sessionItemDetails}>
+                        <Text style={styles.sessionItemDay}>
+                          {format(new Date(booking.slots.start_time), 'EEEE')}
+                        </Text>
+                        <Text style={styles.sessionItemTime}>
+                          {format(new Date(booking.slots.start_time), 'h:mm a')} - {format(new Date(booking.slots.end_time), 'h:mm a')}
+                        </Text>
+                        <Text style={styles.sessionItemLocation}>
+                          {booking.slots.location || 'Elevate Gym'}
+                        </Text>
+                      </View>
+                    </View>
+                    <TouchableOpacity
+                      style={styles.sessionItemCancelButton}
+                      onPress={() => handleCancelBooking(booking)}
+                    >
+                      <Ionicons name="close-circle" size={24} color="#dc2626" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* View Full Schedule Button */}
+            <TouchableOpacity
+              style={styles.viewScheduleButton}
+              onPress={() => navigation.navigate('History')}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#3b82f6" />
+              <Text style={styles.viewScheduleButtonText}>View Full Schedule</Text>
+              <Ionicons name="chevron-forward" size={20} color="#3b82f6" />
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
         <View style={styles.actionsGrid}>
           <QuickActionCard
-            icon="calendar-outline"
+            customIcon={bookSessionIcon}
             title="Book Session"
             subtitle="Schedule PT"
             onPress={() => navigation.navigate('Book')}
             color="#5B9FED"
           />
           <QuickActionCard
-            icon="barbell-outline"
+            customIcon={logWorkoutIcon}
             title="Log Workout"
             subtitle="Track progress"
             onPress={() => navigation.navigate('Workout')}
             color="#5FD4A8"
           />
           <QuickActionCard
-            icon="stats-chart-outline"
+            customIcon={viewProgressIcon}
             title="View Progress"
             subtitle="See analytics"
             onPress={() => navigation.navigate('Analytics')}
             color="#A78BFA"
           />
           <QuickActionCard
-            icon="person-outline"
+            customIcon={profileIcon}
             title="Profile"
             subtitle="Edit details"
             onPress={() => navigation.navigate('Profile')}
             color="#F5A962"
+          />
+          <QuickActionCard
+            icon="chatbubbles"
+            title="Messages"
+            subtitle="Chat with PT"
+            onPress={() => navigation.navigate('Messages')}
+            color="#10b981"
           />
         </View>
 
@@ -338,22 +475,34 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
           </View>
         )}
       </ScrollView>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={onLogout}
+        userRole={userRole}
+        unreadCount={unreadNotifications}
+      />
     </SafeAreaView>
   );
 };
 
 const QuickActionCard: React.FC<{
-  icon: string;
+  icon?: string;
+  customIcon?: any;
   title: string;
   subtitle: string;
   onPress: () => void;
   color: string;
-}> = ({ icon, title, subtitle, onPress, color }) => (
+}> = ({ icon, customIcon, title, subtitle, onPress, color }) => (
   <TouchableOpacity style={styles.actionCard} onPress={onPress} activeOpacity={0.8}>
     <View style={styles.actionCardInner}>
-      <View style={[styles.iconCircle, { backgroundColor: color }]}>
-        <Ionicons name={icon as any} size={32} color="#FFFFFF" style={{ zIndex: 10 }} />
-      </View>
+      {customIcon ? (
+        <Image source={customIcon} style={styles.customIconImage} resizeMode="contain" />
+      ) : (
+        <Ionicons name={icon as any} size={50} color={color} />
+      )}
       <Text style={styles.actionTitle}>{title}</Text>
       <Text style={styles.actionSubtitle}>{subtitle}</Text>
     </View>
@@ -363,30 +512,36 @@ const QuickActionCard: React.FC<{
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   scrollView: {
     flex: 1,
   },
   contentContainer: {
-    paddingBottom: 100,
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   heroBanner: {
     width: '100%',
-    height: 100,
+    height: 160,
+  },
+  hamburgerContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingBottom: 10,
   },
   greeting: {
@@ -397,6 +552,31 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1f2937',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  notificationButton: {
+    padding: 8,
+    position: 'relative',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  notificationBadgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   logoutButton: {
     padding: 8,
@@ -538,6 +718,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  customIconImage: {
+    width: 70,
+    height: 70,
+    marginBottom: 12,
+  },
   actionTitle: {
     fontSize: 15,
     fontWeight: '600',
@@ -657,6 +842,106 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  upcomingSessionsCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    overflow: 'hidden',
+  },
+  upcomingSessionsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+  },
+  upcomingSessionsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  upcomingSessionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  upcomingSessionsList: {
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  upcomingSessionItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  sessionItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  sessionDateBadge: {
+    width: 50,
+    height: 50,
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 12,
+  },
+  sessionDateDay: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#3b82f6',
+  },
+  sessionDateMonth: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#3b82f6',
+    textTransform: 'uppercase',
+  },
+  sessionItemDetails: {
+    flex: 1,
+  },
+  sessionItemDay: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  sessionItemTime: {
+    fontSize: 13,
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  sessionItemLocation: {
+    fontSize: 12,
+    color: '#9ca3af',
+    marginTop: 2,
+  },
+  sessionItemCancelButton: {
+    padding: 8,
+  },
+  viewScheduleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+    gap: 8,
+  },
+  viewScheduleButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
 });
 

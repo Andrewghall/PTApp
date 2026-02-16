@@ -10,10 +10,14 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { db, auth } from '../lib/supabase';
+import { db, auth, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
+
+const logoBanner = require('../../logo banner.png');
 
 interface BlockBookingsScreenProps {
   navigation: any;
@@ -34,6 +38,8 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
   const [creating, setCreating] = useState(false);
   const [selectedClientCredits, setSelectedClientCredits] = useState<number>(0);
   const [estimatedSessions, setEstimatedSessions] = useState<number>(0);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'client' | 'admin'>('admin');
 
   const daysOfWeek = [
     { value: 0, label: 'Sunday' },
@@ -219,6 +225,193 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
     );
   };
 
+  const handleExtendBlockBooking = (blockBooking: any) => {
+    Alert.prompt(
+      'Extend Block Booking',
+      `Current end date: ${format(new Date(blockBooking.end_date), 'MMM d, yyyy')}\n\nHow many additional months?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Extend',
+          onPress: async (months) => {
+            if (!months || isNaN(parseInt(months))) {
+              Alert.alert('Error', 'Please enter a valid number of months');
+              return;
+            }
+
+            try {
+              const currentEndDate = new Date(blockBooking.end_date);
+              const newEndDate = new Date(currentEndDate);
+              newEndDate.setMonth(newEndDate.getMonth() + parseInt(months));
+
+              const { error } = await db.extendBlockBooking(
+                blockBooking.id,
+                newEndDate.toISOString().split('T')[0]
+              );
+
+              if (error) throw error;
+
+              Alert.alert(
+                'Success',
+                `Block booking extended by ${months} month(s).\n\nNew bookings will be created automatically.`
+              );
+              loadData();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to extend block booking');
+            }
+          },
+        },
+      ],
+      'plain-text',
+      '',
+      'number-pad'
+    );
+  };
+
+  const handleSendExpirationReminder = async (blockBooking: any) => {
+    const clientName = `${blockBooking.client_profiles?.first_name} ${blockBooking.client_profiles?.last_name}`;
+    const endDate = format(new Date(blockBooking.end_date), 'MMM d, yyyy');
+    const dayName = daysOfWeek.find(d => d.value === blockBooking.day_of_week)?.label;
+
+    Alert.alert(
+      'Send Expiration Reminder',
+      `Send message to ${clientName} about their ${dayName} ${blockBooking.time_slot} block booking ending on ${endDate}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Send Message',
+          onPress: async () => {
+            try {
+              const { session } = await auth.getSession();
+              if (!session) throw new Error('Not authenticated');
+
+              const message = `Hi ${blockBooking.client_profiles?.first_name}! Your recurring ${dayName} ${blockBooking.time_slot} session block is ending on ${endDate}. Would you like to continue? Let me know and I'll extend your booking!`;
+
+              const { error } = await db.sendMessage(
+                session.user.id,
+                blockBooking.client_id,
+                message
+              );
+
+              if (error) throw error;
+
+              Alert.alert('Success', 'Reminder message sent to client');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to send message');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // Check if block booking is expiring soon (within 14 days)
+  const isExpiringSoon = (endDate: string) => {
+    const end = new Date(endDate);
+    const now = new Date();
+    const daysUntilEnd = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    return daysUntilEnd <= 14 && daysUntilEnd > 0;
+  };
+
+  // Check if block booking has already ended
+  const hasEnded = (endDate: string) => {
+    return new Date(endDate) < new Date();
+  };
+
+  // Get days until end
+  const getDaysUntilEnd = (endDate: string) => {
+    const end = new Date(endDate);
+    const now = new Date();
+    return Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  // Handle changing day/time of block booking
+  const handleChangeSchedule = (blockBooking: any) => {
+    const dayName = daysOfWeek.find(d => d.value === blockBooking.day_of_week)?.label;
+
+    Alert.alert(
+      'Change Schedule',
+      `Current schedule: ${dayName} at ${blockBooking.time_slot}\n\nWhat would you like to change?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Change Day',
+          onPress: () => {
+            // Show day picker
+            Alert.alert(
+              'Select New Day',
+              'Choose the new day for this recurring booking:',
+              [
+                ...daysOfWeek.map(day => ({
+                  text: day.label,
+                  onPress: async () => {
+                    try {
+                      const { error } = await db.updateBlockBookingDay(
+                        blockBooking.id,
+                        day.value,
+                        blockBooking.time_slot
+                      );
+                      if (error) throw error;
+
+                      Alert.alert(
+                        'Success',
+                        `Block booking moved from ${dayName} to ${day.label}.\n\nNote: Existing bookings remain. New bookings will use the updated day.`
+                      );
+                      loadData();
+                    } catch (error: any) {
+                      Alert.alert('Error', error.message || 'Failed to update schedule');
+                    }
+                  }
+                })),
+                { text: 'Cancel', style: 'cancel' }
+              ]
+            );
+          }
+        },
+        {
+          text: 'Change Time',
+          onPress: () => {
+            Alert.prompt(
+              'Change Time',
+              `Current time: ${blockBooking.time_slot}\n\nEnter new time (HH:MM format, e.g., 09:30):`,
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Update',
+                  onPress: async (newTime) => {
+                    if (!newTime || !/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(newTime)) {
+                      Alert.alert('Error', 'Please enter a valid time in HH:MM format (e.g., 09:30)');
+                      return;
+                    }
+
+                    try {
+                      const { error } = await db.updateBlockBookingDay(
+                        blockBooking.id,
+                        blockBooking.day_of_week,
+                        newTime
+                      );
+                      if (error) throw error;
+
+                      Alert.alert(
+                        'Success',
+                        `Time updated from ${blockBooking.time_slot} to ${newTime}.\n\nNote: Existing bookings remain. New bookings will use the updated time.`
+                      );
+                      loadData();
+                    } catch (error: any) {
+                      Alert.alert('Error', error.message || 'Failed to update time');
+                    }
+                  }
+                }
+              ],
+              'plain-text',
+              blockBooking.time_slot
+            );
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -229,10 +422,23 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+      {/* Hero Banner */}
+      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Navigation Bar */}
+      <View style={styles.navigationBar}>
+        <HamburgerButton onPress={() => setMenuVisible(true)} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Header */}
+      <View style={styles.header}>
         <Text style={styles.headerTitle}>Block Bookings</Text>
         <TouchableOpacity onPress={() => setShowCreateModal(true)} style={styles.addButton}>
           <Ionicons name="add-circle" size={28} color="#3b82f6" />
@@ -286,7 +492,52 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
                 </View>
               )}
 
+              {/* Expiration Warning Banner */}
+              {hasEnded(bb.end_date) ? (
+                <View style={[styles.expirationBanner, { backgroundColor: '#fef2f2', borderColor: '#fca5a5' }]}>
+                  <Ionicons name="warning" size={20} color="#dc2626" />
+                  <Text style={[styles.expirationText, { color: '#dc2626' }]}>
+                    Ended {Math.abs(getDaysUntilEnd(bb.end_date))} days ago
+                  </Text>
+                </View>
+              ) : isExpiringSoon(bb.end_date) ? (
+                <View style={[styles.expirationBanner, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+                  <Ionicons name="time" size={20} color="#f59e0b" />
+                  <Text style={[styles.expirationText, { color: '#f59e0b' }]}>
+                    Ending in {getDaysUntilEnd(bb.end_date)} days
+                  </Text>
+                </View>
+              ) : null}
+
               <View style={styles.cardActions}>
+                {/* Extend and Remind buttons for active/expiring bookings */}
+                {!hasEnded(bb.end_date) && (
+                  <>
+                    <TouchableOpacity
+                      style={[styles.actionButton, { backgroundColor: '#3b82f6' }]}
+                      onPress={() => handleExtendBlockBooking(bb)}
+                    >
+                      <Ionicons name="calendar-outline" size={16} color="white" />
+                      <Text style={styles.actionButtonText}>Extend</Text>
+                    </TouchableOpacity>
+                    {isExpiringSoon(bb.end_date) && (
+                      <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: '#8b5cf6' }]}
+                        onPress={() => handleSendExpirationReminder(bb)}
+                      >
+                        <Ionicons name="chatbubble-outline" size={16} color="white" />
+                        <Text style={styles.actionButtonText}>Remind</Text>
+                      </TouchableOpacity>
+                    )}
+                  </>
+                )}
+                <TouchableOpacity
+                  style={[styles.actionButton, { backgroundColor: '#10b981' }]}
+                  onPress={() => handleChangeSchedule(bb)}
+                >
+                  <Ionicons name="swap-horizontal" size={16} color="white" />
+                  <Text style={styles.actionButtonText}>Change</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.actionButton, { backgroundColor: bb.status === 'active' ? '#f59e0b' : '#10b981' }]}
                   onPress={() => handlePauseBlockBooking(bb.id, bb.status)}
@@ -452,6 +703,18 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
           </View>
         </View>
       </Modal>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole={userRole}
+        unreadCount={0}
+      />
     </SafeAreaView>
   );
 };
@@ -459,13 +722,27 @@ const BlockBookingsScreen: React.FC<BlockBookingsScreenProps> = ({ navigation })
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
+  },
+  heroBanner: {
+    width: '100%',
+    height: 160,
+  },
+  navigationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
   },
   header: {
     flexDirection: 'row',
@@ -478,7 +755,14 @@ const styles = StyleSheet.create({
     borderBottomColor: '#e5e7eb',
   },
   backButton: {
-    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#1f2937',
+    fontWeight: '500',
   },
   headerTitle: {
     fontSize: 18,
@@ -567,8 +851,22 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     fontStyle: 'italic',
   },
+  expirationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 12,
+    borderWidth: 1,
+  },
+  expirationText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
   cardActions: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
     marginTop: 12,
   },

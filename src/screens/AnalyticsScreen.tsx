@@ -142,6 +142,95 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
     };
   };
 
+  const renderLineChart = (data: number[]) => {
+    if (data.length === 0) return null;
+
+    const chartWidth = Dimensions.get('window').width - 64; // padding
+    const chartHeight = 180;
+    const padding = 20;
+    const innerWidth = chartWidth - padding * 2;
+    const innerHeight = chartHeight - padding * 2;
+
+    const minValue = Math.min(...data);
+    const maxValue = Math.max(...data);
+    const valueRange = maxValue - minValue || 1;
+
+    // Calculate points
+    const points = data.map((value, index) => {
+      const x = padding + (index / (data.length - 1 || 1)) * innerWidth;
+      const y = padding + innerHeight - ((value - minValue) / valueRange) * innerHeight;
+      return { x, y, value };
+    });
+
+    // Create path for line
+    const pathData = points.map((point, index) => {
+      if (index === 0) return `M ${point.x} ${point.y}`;
+      return `L ${point.x} ${point.y}`;
+    }).join(' ');
+
+    // Create area fill path
+    const areaPath = `${pathData} L ${points[points.length - 1].x} ${chartHeight - padding} L ${padding} ${chartHeight - padding} Z`;
+
+    return (
+      <View style={styles.chartSvgContainer}>
+        {/* Y-axis labels */}
+        <View style={styles.yAxisLabels}>
+          <Text style={styles.axisLabel}>{maxValue}kg</Text>
+          <Text style={styles.axisLabel}>{Math.round((maxValue + minValue) / 2)}kg</Text>
+          <Text style={styles.axisLabel}>{minValue}kg</Text>
+        </View>
+
+        {/* Chart area */}
+        <View style={[styles.chartCanvas, { width: chartWidth, height: chartHeight }]}>
+          {/* Grid lines */}
+          <View style={[styles.gridLine, { top: padding }]} />
+          <View style={[styles.gridLine, { top: padding + innerHeight / 2 }]} />
+          <View style={[styles.gridLine, { top: padding + innerHeight }]} />
+
+          {/* Data points and trend line simulation with View components */}
+          <View style={styles.chartLineContainer}>
+            {points.map((point, index) => (
+              <View key={index}>
+                {/* Line segment to next point */}
+                {index < points.length - 1 && (
+                  <View
+                    style={[
+                      styles.lineSegment,
+                      {
+                        left: point.x,
+                        top: point.y,
+                        width: Math.sqrt(
+                          Math.pow(points[index + 1].x - point.x, 2) +
+                          Math.pow(points[index + 1].y - point.y, 2)
+                        ),
+                        transform: [{
+                          rotate: `${Math.atan2(
+                            points[index + 1].y - point.y,
+                            points[index + 1].x - point.x
+                          )}rad`
+                        }]
+                      }
+                    ]}
+                  />
+                )}
+                {/* Data point */}
+                <View
+                  style={[
+                    styles.dataPoint,
+                    {
+                      left: point.x - 4,
+                      top: point.y - 4,
+                    }
+                  ]}
+                />
+              </View>
+            ))}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -269,17 +358,23 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
           </View>
         )}
 
-        {/* Chart - Placeholder for now */}
+        {/* Weight Progress Chart */}
         {selectedExercise && chartData.length > 0 && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Weight Progress</Text>
             <View style={styles.chartContainer}>
-              <Text style={styles.chartPlaceholder}>
-                📈 {chartData.length} sessions tracked
-              </Text>
-              <Text style={styles.chartSubtext}>
-                Min: {Math.min(...chartData)}kg | Max: {Math.max(...chartData)}kg
-              </Text>
+              {renderLineChart(chartData)}
+              <View style={styles.chartStats}>
+                <Text style={styles.chartStatText}>
+                  Min: {Math.min(...chartData)}kg
+                </Text>
+                <Text style={styles.chartStatText}>
+                  {chartData.length} sessions
+                </Text>
+                <Text style={styles.chartStatText}>
+                  Max: {Math.max(...chartData)}kg
+                </Text>
+              </View>
             </View>
             <Text style={styles.chartLabel}>Session progression over time</Text>
           </View>
@@ -321,13 +416,13 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   header: {
     backgroundColor: 'white',
@@ -487,13 +582,74 @@ const styles = StyleSheet.create({
   chartContainer: {
     backgroundColor: 'white',
     borderRadius: 12,
-    padding: 32,
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
     elevation: 1,
+  },
+  chartSvgContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
+  },
+  yAxisLabels: {
+    marginRight: 8,
+    justifyContent: 'space-between',
+    height: 180,
+    paddingVertical: 20,
+  },
+  axisLabel: {
+    fontSize: 10,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  chartCanvas: {
+    position: 'relative',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+  },
+  gridLine: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  chartLineContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+  lineSegment: {
+    position: 'absolute',
+    height: 3,
+    backgroundColor: '#3b82f6',
+    borderRadius: 2,
+  },
+  dataPoint: {
+    position: 'absolute',
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#3b82f6',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  chartStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  chartStatText: {
+    fontSize: 12,
+    color: '#6b7280',
+    fontWeight: '500',
   },
   chartPlaceholder: {
     fontSize: 32,

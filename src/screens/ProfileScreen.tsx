@@ -13,7 +13,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { db, supabase } from '../lib/supabase';
+import { db, supabase, auth } from '../lib/supabase';
+import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 const logoBanner = require('../../logo banner.png');
 
@@ -33,6 +34,8 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const [totalSessions, setTotalSessions] = useState(0);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
 
   useEffect(() => {
     loadProfileData();
@@ -45,6 +48,16 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
       if (profile) {
         setClientProfile(profile);
         setPhone(profile.phone || '');
+
+        // Get user role
+        const { data: userProfile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', userId)
+          .single();
+        if (userProfile?.role) {
+          setUserRole(userProfile.role);
+        }
 
         // Load profile image if exists
         if (profile.profile_image_url) {
@@ -191,17 +204,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
+      {/* Hero Banner */}
+      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+      {/* Navigation Bar */}
+      <View style={styles.navigationBar}>
+        <HamburgerButton onPress={() => setMenuVisible(true)} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
           <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Profile</Text>
-        <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Hero Banner */}
-        <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
         {/* Profile Picture Section */}
         <View style={styles.profilePictureSection}>
@@ -384,6 +402,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Hamburger Menu */}
+      <HamburgerMenu
+        visible={menuVisible}
+        onClose={() => setMenuVisible(false)}
+        onLogout={async () => {
+          await auth.signOut();
+          navigation.navigate('Login');
+        }}
+        userRole={userRole}
+        unreadCount={0}
+      />
     </SafeAreaView>
   );
 };
@@ -391,13 +421,13 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#F1F5F9',
   },
   errorContainer: {
     flex: 1,
@@ -410,16 +440,27 @@ const styles = StyleSheet.create({
     color: '#6b7280',
     marginBottom: 20,
   },
-  backButton: {
-    backgroundColor: '#3b82f6',
-    paddingHorizontal: 24,
+  navigationBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
   },
   backButtonText: {
-    color: 'white',
     fontSize: 16,
-    fontWeight: '600',
+    color: '#1f2937',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   header: {
     flexDirection: 'row',
@@ -431,9 +472,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  headerBackButton: {
-    padding: 4,
-  },
   headerTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -444,7 +482,7 @@ const styles = StyleSheet.create({
   },
   heroBanner: {
     width: '100%',
-    height: 100,
+    height: 160,
   },
   profilePictureSection: {
     alignItems: 'center',

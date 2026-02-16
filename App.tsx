@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, View, TouchableOpacity, Text, StyleSheet, Modal } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 import { auth, supabase, db } from './src/lib/supabase';
@@ -20,22 +20,16 @@ import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
 import ReferralsScreen from './src/screens/ReferralsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
 import BlockBookingsScreen from './src/screens/BlockBookingsScreen';
+import NotificationsScreen from './src/screens/NotificationsScreen';
+import ProgrammeAssignmentsScreen from './src/screens/ProgrammeAssignmentsScreen';
+import MyProgrammeScreen from './src/screens/MyProgrammeScreen';
+import ClientDetailsScreen from './src/screens/ClientDetailsScreen';
+import { MainNavigator } from './src/components/MainNavigator';
 
 const Tab = createBottomTabNavigator();
 const Stack = createStackNavigator();
 
-// Custom Tab Bar Icon - Simple blue filled/gray outlined style
-const TabBarIcon = ({ iconName, focused }: { iconName: any; focused: boolean }) => {
-  return (
-    <Ionicons
-      name={iconName}
-      size={24}
-      color={focused ? '#3b82f6' : '#9ca3af'}
-    />
-  );
-};
-
-// Dashboard Stack Navigator (includes Credits, Workout, Analytics, Profile screens)
+// Dashboard Stack Navigator (includes Credits, Workout, Analytics, Profile, Notifications, MyProgramme screens)
 function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: string }) {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
@@ -48,16 +42,20 @@ function DashboardStack({ onLogout, userId }: { onLogout: () => void; userId: st
       <Stack.Screen name="Profile">
         {(props) => <ProfileScreen {...props} route={{ params: { userId } }} />}
       </Stack.Screen>
+      <Stack.Screen name="Notifications" component={NotificationsScreen} />
+      <Stack.Screen name="MyProgramme" component={MyProgrammeScreen} />
     </Stack.Navigator>
   );
 }
 
-// Admin Stack Navigator (includes BlockBookings screen)
+// Admin Stack Navigator (includes BlockBookings, ProgrammeAssignments, and ClientDetails screens)
 function AdminStack() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="AdminHome" component={AdminScreen} />
       <Stack.Screen name="BlockBookings" component={BlockBookingsScreen} />
+      <Stack.Screen name="ProgrammeAssignments" component={ProgrammeAssignmentsScreen} />
+      <Stack.Screen name="ClientDetails" component={ClientDetailsScreen} />
     </Stack.Navigator>
   );
 }
@@ -154,72 +152,12 @@ export default function App() {
             </Stack.Screen>
           </Stack.Navigator>
         ) : (
-          <Tab.Navigator
-            screenOptions={({ route }) => ({
-              tabBarIcon: ({ focused }) => {
-                let iconName: any;
-
-                if (route.name === 'Dashboard') {
-                  iconName = focused ? 'home' : 'home-outline';
-                } else if (route.name === 'Book') {
-                  iconName = focused ? 'calendar' : 'calendar-outline';
-                } else if (route.name === 'Messages') {
-                  iconName = focused ? 'mail' : 'mail-outline';
-                } else if (route.name === 'History') {
-                  iconName = focused ? 'time' : 'time-outline';
-                } else if (route.name === 'Refer') {
-                  iconName = focused ? 'gift' : 'gift-outline';
-                } else if (route.name === 'Admin') {
-                  iconName = focused ? 'settings' : 'settings-outline';
-                }
-
-                return <TabBarIcon iconName={iconName} focused={focused} />;
-              },
-              tabBarActiveTintColor: '#3b82f6',
-              tabBarInactiveTintColor: '#9ca3af',
-              tabBarStyle: {
-                backgroundColor: '#ffffff',
-                borderTopColor: '#e5e7eb',
-                borderTopWidth: 1,
-                paddingBottom: 8,
-                paddingTop: 12,
-                height: 80,
-                shadowColor: '#000',
-                shadowOffset: { width: 0, height: -4 },
-                shadowOpacity: 0.15,
-                shadowRadius: 8,
-                elevation: 12,
-              },
-              tabBarLabelStyle: {
-                fontSize: 11,
-                fontWeight: '600',
-                marginTop: 4,
-              },
-              tabBarIconStyle: {
-                marginBottom: 0,
-              },
-              headerShown: false,
-            })}
-          >
-            <Tab.Screen name="Dashboard">
-              {() => <DashboardStack onLogout={handleLogout} userId={session.user.id} />}
-            </Tab.Screen>
-            <Tab.Screen name="Book" component={BookingScreen} />
-            <Tab.Screen
-              name="Messages"
-              component={MessagingScreen}
-              options={{
-                tabBarBadge: unreadCount > 0 ? unreadCount : undefined,
-              }}
-            />
-            <Tab.Screen
-              name="History"
-              component={SessionHistoryScreen}
-              options={{ title: 'Past Sessions' }}
-            />
-            <Tab.Screen name="Refer" component={ReferralsScreen} />
-            {userRole === 'admin' && <Tab.Screen name="Admin" component={AdminStack} />}
-          </Tab.Navigator>
+          <MainNavigator
+            onLogout={handleLogout}
+            userId={session.user.id}
+            userRole={userRole}
+            unreadCount={unreadCount}
+          />
         )}
       </NavigationContainer>
     </SafeAreaProvider>
