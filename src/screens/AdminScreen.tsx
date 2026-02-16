@@ -360,54 +360,45 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
 
-      {/* Header with Menu */}
+      {/* Header */}
       <View style={styles.headerContainer}>
         <HamburgerButton onPress={() => setMenuVisible(true)} />
         <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>{getActiveTabTitle()}</Text>
-          <Text style={styles.headerSubtitle}>Admin Portal</Text>
+          <Text style={styles.headerTitle}>Admin Portal</Text>
         </View>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={() => setShowMenu(!showMenu)}
-        >
-          <Ionicons name="filter" size={24} color="#1f2937" />
-        </TouchableOpacity>
       </View>
 
-      {/* Dropdown Menu */}
-      {showMenu && (
-        <View style={styles.dropdownMenu}>
-          <TouchableOpacity
-            style={[styles.menuItem, activeTab === 'overview' && styles.menuItemActive]}
-            onPress={() => { setActiveTab('overview'); setShowMenu(false); }}
-          >
-            <Ionicons name="stats-chart" size={20} color={activeTab === 'overview' ? '#3b82f6' : '#6b7280'} />
-            <Text style={[styles.menuItemText, activeTab === 'overview' && styles.menuItemTextActive]}>Overview</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, activeTab === 'schedule' && styles.menuItemActive]}
-            onPress={() => { setActiveTab('schedule'); setShowMenu(false); }}
-          >
-            <Ionicons name="calendar" size={20} color={activeTab === 'schedule' ? '#3b82f6' : '#6b7280'} />
-            <Text style={[styles.menuItemText, activeTab === 'schedule' && styles.menuItemTextActive]}>Schedule</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, activeTab === 'clients' && styles.menuItemActive]}
-            onPress={() => { setActiveTab('clients'); setShowMenu(false); }}
-          >
-            <Ionicons name="people" size={20} color={activeTab === 'clients' ? '#3b82f6' : '#6b7280'} />
-            <Text style={[styles.menuItemText, activeTab === 'clients' && styles.menuItemTextActive]}>Clients</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.menuItem, activeTab === 'packs' && styles.menuItemActive]}
-            onPress={() => { setActiveTab('packs'); setShowMenu(false); }}
-          >
-            <Ionicons name="pricetag" size={20} color={activeTab === 'packs' ? '#3b82f6' : '#6b7280'} />
-            <Text style={[styles.menuItemText, activeTab === 'packs' && styles.menuItemTextActive]}>Pricing</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      {/* Tab Bar - Mobile Friendly */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
+          onPress={() => setActiveTab('overview')}
+        >
+          <Ionicons name="stats-chart" size={20} color={activeTab === 'overview' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>Overview</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
+          onPress={() => setActiveTab('schedule')}
+        >
+          <Ionicons name="calendar" size={20} color={activeTab === 'schedule' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'schedule' && styles.tabTextActive]}>Schedule</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'clients' && styles.tabActive]}
+          onPress={() => setActiveTab('clients')}
+        >
+          <Ionicons name="people" size={20} color={activeTab === 'clients' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'clients' && styles.tabTextActive]}>Clients</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'packs' && styles.tabActive]}
+          onPress={() => setActiveTab('packs')}
+        >
+          <Ionicons name="pricetag" size={20} color={activeTab === 'packs' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'packs' && styles.tabTextActive]}>Pricing</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Overview Tab */}
@@ -924,12 +915,33 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  menuButton: {
-    padding: 8,
-    backgroundColor: '#f3f4f6',
-    borderRadius: 8,
-    justifyContent: 'center',
+  tabBar: {
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    paddingHorizontal: 12,
+  },
+  tab: {
+    flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginRight: 8,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  tabActive: {
+    borderBottomColor: '#3b82f6',
+  },
+  tabText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#6b7280',
+  },
+  tabTextActive: {
+    color: '#3b82f6',
+    fontWeight: '600',
   },
   hamburgerIcon: {
     width: 24,
