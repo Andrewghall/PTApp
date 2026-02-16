@@ -260,8 +260,31 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
     }
   };
 
-  const deleteExercise = (exerciseId: number) => {
-    setCurrentWeekWorkout(currentWeekWorkout.filter((ex) => ex.id !== exerciseId));
+  const deleteExercise = async (exerciseId: string) => {
+    Alert.alert(
+      'Delete Exercise',
+      'Are you sure you want to delete this exercise from your workout?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Delete from database
+              const { error } = await db.deleteWorkoutExercise(exerciseId);
+              if (error) throw error;
+
+              // Remove from local state
+              setCurrentWeekWorkout(currentWeekWorkout.filter((ex) => ex.id !== exerciseId));
+              Alert.alert('Success', 'Exercise deleted from workout');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to delete exercise');
+            }
+          }
+        }
+      ]
+    );
   };
 
   return (

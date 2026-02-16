@@ -283,6 +283,85 @@ export const db = {
     return { error };
   },
 
+  // ── Workout Management ──
+  updateWorkoutExercise: async (workoutExerciseId: string, updates: { order_index?: number }) => {
+    const { data, error } = await supabase
+      .from('workout_exercises')
+      .update(updates)
+      .eq('id', workoutExerciseId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  deleteWorkoutExercise: async (workoutExerciseId: string) => {
+    const { error } = await supabase
+      .from('workout_exercises')
+      .delete()
+      .eq('id', workoutExerciseId);
+    return { error };
+  },
+
+  deleteSetEntry: async (setId: string) => {
+    const { error } = await supabase
+      .from('set_entries')
+      .delete()
+      .eq('id', setId);
+    return { error };
+  },
+
+  // ── Attendance Tracking ──
+  markSessionAttended: async (bookingId: string, attended: boolean) => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ attended, updated_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  markSessionNoShow: async (bookingId: string) => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .update({ no_show: true, attended: false, updated_at: new Date().toISOString() })
+      .eq('id', bookingId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  // ── Credit Pack Management ──
+  createCreditPack: async (credits: number, price: number, discountPercent: number = 0, isActive: boolean = true) => {
+    const { data, error } = await supabase
+      .from('credit_packs')
+      .insert([{ credits, price, discount_percent: discountPercent, is_active: isActive }])
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  updateCreditPack: async (packId: string, updates: any) => {
+    const { data, error } = await supabase
+      .from('credit_packs')
+      .update(updates)
+      .eq('id', packId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  deleteCreditPack: async (packId: string) => {
+    // Soft delete by marking inactive
+    const { data, error } = await supabase
+      .from('credit_packs')
+      .update({ is_active: false })
+      .eq('id', packId)
+      .select()
+      .single();
+    return { data, error };
+  },
+
   // ── Exercises ──
   getExercises: async () => {
     const { data, error } = await supabase

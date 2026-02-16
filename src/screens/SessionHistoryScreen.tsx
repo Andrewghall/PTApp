@@ -80,6 +80,25 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
     return workouts.find(w => w.date === sessionDate);
   };
 
+  const handleMarkAttendance = async (bookingId: string, attended: boolean) => {
+    try {
+      const { error } = await db.markSessionAttended(bookingId, attended);
+      if (error) throw error;
+
+      Alert.alert('Success', attended ? 'Session marked as attended' : 'Session marked as no-show');
+
+      // Refresh data
+      await loadHistory();
+
+      // Close modal
+      setShowNotesModal(false);
+      setSelectedBooking(null);
+      setSessionNote(null);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update attendance');
+    }
+  };
+
   const viewSessionNotes = async (booking: any) => {
     setSelectedBooking(booking);
 
@@ -307,6 +326,31 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
                     </Text>
                   </View>
                 </View>
+
+                {/* Attendance Marking - Only show if session is past and not yet marked */}
+                {isPast(new Date(selectedBooking.slots.start_time)) &&
+                 !selectedBooking.attended &&
+                 !selectedBooking.no_show && (
+                  <View style={styles.attendanceSection}>
+                    <Text style={styles.attendanceSectionTitle}>Mark Attendance</Text>
+                    <View style={styles.attendanceButtons}>
+                      <TouchableOpacity
+                        style={[styles.attendanceButton, { backgroundColor: '#10b981' }]}
+                        onPress={() => handleMarkAttendance(selectedBooking.id, true)}
+                      >
+                        <Ionicons name="checkmark-circle" size={20} color="white" />
+                        <Text style={styles.attendanceButtonText}>Mark Attended</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={[styles.attendanceButton, { backgroundColor: '#ef4444' }]}
+                        onPress={() => handleMarkAttendance(selectedBooking.id, false)}
+                      >
+                        <Ionicons name="close-circle" size={20} color="white" />
+                        <Text style={styles.attendanceButtonText}>Mark No-Show</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
 
                 {/* PT Notes */}
                 {sessionNote ? (
@@ -627,6 +671,36 @@ const styles = StyleSheet.create({
     color: '#d1d5db',
     marginTop: 4,
     textAlign: 'center',
+  },
+  attendanceSection: {
+    marginBottom: 24,
+    padding: 16,
+    backgroundColor: '#f9fafb',
+    borderRadius: 12,
+  },
+  attendanceSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 12,
+  },
+  attendanceButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  attendanceButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  attendanceButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
 });
 

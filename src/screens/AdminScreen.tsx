@@ -33,6 +33,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [showAddPackModal, setShowAddPackModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
   const [businessMetrics, setBusinessMetrics] = useState<any>(null);
+  const [newPack, setNewPack] = useState({ credits: '', price: '', discount: '' });
+  const [creating, setCreating] = useState(false);
 
   useEffect(() => {
     loadAdminData();
@@ -182,6 +184,33 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       ],
       'plain-text'
     );
+  };
+
+  const handleCreatePack = async () => {
+    if (!newPack.credits || !newPack.price) {
+      Alert.alert('Error', 'Please fill in credits and price');
+      return;
+    }
+
+    setCreating(true);
+    try {
+      const { error } = await db.createCreditPack(
+        parseInt(newPack.credits),
+        parseFloat(newPack.price) * 100, // Convert euros to cents
+        parseFloat(newPack.discount || '0')
+      );
+
+      if (error) throw error;
+
+      Alert.alert('Success', 'Credit pack created!');
+      setShowAddPackModal(false);
+      setNewPack({ credits: '', price: '', discount: '' });
+      await loadAdminData(); // Refresh packs list
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create pack');
+    } finally {
+      setCreating(false);
+    }
   };
 
   if (loading) {
@@ -518,13 +547,79 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               </View>
             ))}
 
-            <TouchableOpacity style={styles.addPackButton}>
+            <TouchableOpacity
+              style={styles.addPackButton}
+              onPress={() => setShowAddPackModal(true)}
+            >
               <Ionicons name="add-circle-outline" size={20} color="#3b82f6" />
               <Text style={styles.addPackText}>Add New Pack</Text>
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+
+      {/* Add Pack Modal */}
+      <Modal visible={showAddPackModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Credit Pack</Text>
+              <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
+                <Ionicons name="close" size={28} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Number of Credits *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 10"
+                keyboardType="number-pad"
+                value={newPack.credits}
+                onChangeText={(text) => setNewPack({...newPack, credits: text})}
+              />
+
+              <Text style={styles.inputLabel}>Price (€) *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 50.00"
+                keyboardType="decimal-pad"
+                value={newPack.price}
+                onChangeText={(text) => setNewPack({...newPack, price: text})}
+              />
+
+              <Text style={styles.inputLabel}>Discount % (optional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 10"
+                keyboardType="number-pad"
+                value={newPack.discount}
+                onChangeText={(text) => setNewPack({...newPack, discount: text})}
+              />
+            </View>
+
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowAddPackModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalCreateButton}
+                onPress={handleCreatePack}
+                disabled={creating}
+              >
+                {creating ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <Text style={styles.modalCreateButtonText}>Create Pack</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -948,6 +1043,87 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#9ca3af',
     marginTop: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+  },
+  modalBody: {
+    padding: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  modalInput: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: 'white',
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#e5e7eb',
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#6b7280',
+  },
+  modalCreateButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#3b82f6',
+    alignItems: 'center',
+  },
+  modalCreateButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
   },
 });
 

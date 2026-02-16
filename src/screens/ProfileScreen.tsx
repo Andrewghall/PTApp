@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { db } from '../lib/supabase';
+import { db, supabase } from '../lib/supabase';
 
 const logoBanner = require('../../logo banner.png');
 
@@ -45,6 +45,11 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
       if (profile) {
         setClientProfile(profile);
         setPhone(profile.phone || '');
+
+        // Load profile image if exists
+        if (profile.profile_image_url) {
+          setProfileImage(profile.profile_image_url);
+        }
 
         // Get credit balance
         const { data: credits } = await db.getCreditBalance(profile.id);
@@ -101,10 +106,45 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
     });
 
     if (!result.canceled && result.assets && result.assets[0]) {
-      setProfileImage(result.assets[0].uri);
-      // In a real app, you would upload this to your server/cloud storage
-      // For now, we'll just store the local URI
-      Alert.alert('Success', 'Profile picture updated! (Note: This is stored locally only)');
+      const imageUri = result.assets[0].uri;
+
+      try {
+        // Show loading
+        setProfileImage(imageUri); // Update UI immediately with local image
+
+        // Upload to Supabase Storage
+        const response = await fetch(imageUri);
+        const blob = await response.blob();
+        const fileExt = imageUri.split('.').pop() || 'jpg';
+        const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('profile-images')
+          .upload(filePath, blob, {
+            contentType: `image/${fileExt}`,
+            upsert: true
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('profile-images')
+          .getPublicUrl(filePath);
+
+        // Save URL to database
+        const { error: updateError } = await db.updateClientProfile(profile.id, {
+          profile_image_url: urlData.publicUrl
+        });
+
+        if (updateError) throw updateError;
+
+        Alert.alert('Success', 'Profile picture updated!');
+      } catch (error: any) {
+        Alert.alert('Error', error.message || 'Failed to upload image');
+        console.error('Image upload error:', error);
+      }
     }
   };
 
