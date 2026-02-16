@@ -2,10 +2,7 @@
 nixPkgs = ['nodejs_20']
 
 [phases.install]
-cmds = ['npm ci --prefer-offline --no-audit']
-
-[phases.build]
-cmds = ['npx expo export --platform web']
+cmds = ['npm install --global serve']
 
 [start]
-cmd = 'npx serve dist -p $PORT'
+cmd = 'serve dist -s -p $PORT'
