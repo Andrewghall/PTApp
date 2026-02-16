@@ -170,8 +170,16 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   };
 
   const startNewConversation = () => {
+    console.log('=== START NEW CONVERSATION ===');
+    console.log('userRole:', userRole);
+    console.log('adminUser:', adminUser);
+
     if (userRole === 'client') {
-      if (!adminUser) return;
+      console.log('User is CLIENT - opening chat with PT');
+      if (!adminUser) {
+        console.log('ERROR: No admin user found!');
+        return;
+      }
       // Create a conversation object for the admin/PT
       setSelectedConversation({
         user: adminUser,
@@ -181,6 +189,7 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
       });
       setShowChatModal(true);
     } else {
+      console.log('User is ADMIN - showing client selector');
       // Admin - show client selector
       setShowClientSelector(true);
     }
