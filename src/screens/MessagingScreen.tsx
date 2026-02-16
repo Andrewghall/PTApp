@@ -100,17 +100,35 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
       // If client, get the admin user for starting new conversations
       if (profile?.role === 'client') {
-        const { data: admin } = await supabase
+        console.log('Client detected - fetching admin user...');
+        const { data: admin, error: adminError } = await supabase
           .from('profiles')
           .select('id, email, role')
           .eq('role', 'admin')
           .limit(1)
           .single();
 
+        console.log('Admin query result:', { admin, adminError });
+
         if (admin) {
+          // Try to get the admin's actual name from their profile/details
+          const adminName = admin.email?.split('@')[0] || 'PT';
+          const displayName = adminName.charAt(0).toUpperCase() + adminName.slice(1);
+
           // Set admin user with friendly display name
           setAdminUser({
             ...admin,
+            first_name: displayName,
+            last_name: '',
+          });
+          console.log('Admin user set:', displayName);
+        } else {
+          console.error('No admin user found in database!');
+          // Set a fallback admin user so messaging still works
+          setAdminUser({
+            id: 'fallback-admin',
+            email: 'pt@elevategym.com',
+            role: 'admin',
             first_name: 'Your',
             last_name: 'PT',
           });
