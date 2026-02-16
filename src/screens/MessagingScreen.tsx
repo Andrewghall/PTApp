@@ -336,11 +336,12 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
               onPress={() => openConversation(item)}
             >
               <View style={styles.avatarContainer}>
-                <Ionicons
-                  name={item.user.role === 'admin' ? 'person-circle' : 'person-circle-outline'}
-                  size={48}
-                  color="#3b82f6"
-                />
+                <View style={[styles.avatarCircle, item.user.role === 'admin' && styles.avatarCircleAdmin]}>
+                  <Text style={styles.avatarText}>
+                    {item.user.first_name?.[0]?.toUpperCase() || 'U'}
+                    {item.user.last_name?.[0]?.toUpperCase() || ''}
+                  </Text>
+                </View>
                 {item.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
@@ -628,6 +629,22 @@ const styles = StyleSheet.create({
   avatarContainer: {
     position: 'relative',
     marginRight: 12,
+  },
+  avatarCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#dbeafe',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarCircleAdmin: {
+    backgroundColor: '#10b981',
+  },
+  avatarText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#1f2937',
   },
   unreadBadge: {
     position: 'absolute',
