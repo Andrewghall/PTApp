@@ -244,13 +244,32 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   const sendMessage = async () => {
     if (!newMessage.trim() || !userId || !selectedConversation) return;
 
+    const messageContent = newMessage.trim();
+    const tempId = `temp-${Date.now()}`;
+
+    // Optimistic update - add message to local state immediately (like WhatsApp)
+    const optimisticMessage = {
+      id: tempId,
+      sender_id: userId,
+      recipient_id: selectedConversation.userId,
+      content: messageContent,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+
+    setMessages(prev => [...prev, optimisticMessage]);
+    setNewMessage('');
+
     setSending(true);
     try {
-      await db.sendMessage(userId, selectedConversation.userId, newMessage.trim());
-      setNewMessage('');
-      loadData(); // Reload messages
+      await db.sendMessage(userId, selectedConversation.userId, messageContent);
+      // Reload to get the real message with proper ID from server
+      loadData();
     } catch (error: any) {
       console.error('Error sending message:', error);
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setNewMessage(messageContent); // Restore the message text
     } finally {
       setSending(false);
     }
