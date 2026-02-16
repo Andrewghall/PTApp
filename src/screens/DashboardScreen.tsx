@@ -16,6 +16,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { db, supabase } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Import the logo banner image
 const logoBanner = require('../../logo banner.png');
@@ -49,6 +50,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
   useEffect(() => {
     loadDashboardData();
   }, [userId]);
+
+  // Reload data when screen comes into focus (e.g., after booking)
+  useFocusEffect(
+    React.useCallback(() => {
+      loadDashboardData();
+    }, [userId])
+  );
 
   const loadDashboardData = async () => {
     try {

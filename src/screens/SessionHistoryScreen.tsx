@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
@@ -52,15 +53,9 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
       setWorkouts(allWorkouts || []);
 
       if (allBookings) {
-        // Filter to only show PAST sessions (history should not include future sessions)
-        const now = new Date();
-        const pastBookings = allBookings.filter(b => {
-          const sessionTime = new Date(b.slots.start_time);
-          return sessionTime < now;
-        });
-
+        // Show ALL bookings (past, upcoming, and cancelled)
         // Sort by date, most recent first
-        const sorted = pastBookings.sort((a, b) => {
+        const sorted = allBookings.sort((a, b) => {
           return new Date(b.slots.start_time).getTime() - new Date(a.slots.start_time).getTime();
         });
         setBookings(sorted);
@@ -88,7 +83,7 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
       Alert.alert('Success', attended ? 'Session marked as attended' : 'Session marked as no-show');
 
       // Refresh data
-      await loadHistory();
+      await loadData();
 
       // Close modal
       setShowNotesModal(false);
@@ -224,8 +219,16 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
                 <TouchableOpacity
                   key={booking.id}
                   style={styles.sessionCard}
-                  onPress={() => isPastSession && viewSessionNotes(booking)}
-                  disabled={!isPastSession}
+                  onPress={() => {
+                    if (isPastSession) {
+                      // Past session - view notes/details
+                      viewSessionNotes(booking);
+                    } else {
+                      // Upcoming session - navigate to workout screen
+                      const sessionDate = new Date(booking.slots.start_time);
+                      navigation.navigate('Workout', { selectedDate: sessionDate });
+                    }
+                  }}
                 >
                   <View style={styles.sessionHeader}>
                     <View style={styles.sessionDateContainer}>
@@ -267,11 +270,18 @@ const SessionHistoryScreen: React.FC<SessionHistoryScreenProps> = ({ navigation 
                       </View>
                     )}
 
-                    {isPastSession && (
+                    {isPastSession ? (
                       <View style={styles.sessionDetailRow}>
                         <Ionicons name="document-text" size={16} color="#6b7280" />
                         <Text style={styles.sessionDetailText}>
                           Tap to view details
+                        </Text>
+                      </View>
+                    ) : booking.status !== 'cancelled' && (
+                      <View style={styles.sessionDetailRow}>
+                        <Ionicons name="add-circle" size={16} color="#3b82f6" />
+                        <Text style={[styles.sessionDetailText, { color: '#3b82f6' }]}>
+                          Tap to log workout
                         </Text>
                       </View>
                     )}

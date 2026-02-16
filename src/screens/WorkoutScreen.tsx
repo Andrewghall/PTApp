@@ -59,6 +59,8 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
   const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [pendingExercise, setPendingExercise] = useState<any>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successExerciseName, setSuccessExerciseName] = useState('');
 
   useEffect(() => {
     loadData();
@@ -280,13 +282,16 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
       };
       setCurrentWeekWorkout([...currentWeekWorkout, workoutExercise]);
 
-      // Reset state
+      // Set success message FIRST
+      setSuccessExerciseName(pendingExercise.name);
+
+      // Close confirm modal and show success modal immediately (no flash)
       setShowConfirmModal(false);
-      setShowAddExercise(false);
+      setShowSuccessModal(true);
+
+      // Reset state (but keep modals open until user closes success modal)
       setPendingExercise(null);
       setNewExercise({ sets: '', weight: '', notes: '', type: 'normal' });
-
-      Alert.alert('Success', 'Exercise saved to workout!');
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to add exercise');
     }
@@ -586,6 +591,30 @@ const WorkoutScreen: React.FC<WorkoutScreenProps> = ({ navigation, route }) => {
                 <Text style={styles.confirmAddButtonText}>Add to Workout</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal visible={showSuccessModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.successIconContainer}>
+              <Ionicons name="checkmark-circle" size={80} color="#10b981" />
+            </View>
+            <Text style={styles.modalTitle}>Exercise Added! ✅</Text>
+            <Text style={styles.successMessage}>
+              {successExerciseName} has been added to your workout.
+            </Text>
+            <TouchableOpacity
+              style={styles.successButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                setShowAddExercise(false);
+              }}
+            >
+              <Text style={styles.successButtonText}>OK</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -1001,6 +1030,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   confirmAddButtonText: {
+    fontSize: 16,
+    color: 'white',
+    fontWeight: '600',
+  },
+  successIconContainer: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#1f2937',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 24,
+  },
+  successButton: {
+    width: '100%',
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: '#10b981',
+    alignItems: 'center',
+  },
+  successButtonText: {
     fontSize: 16,
     color: 'white',
     fontWeight: '600',

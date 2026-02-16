@@ -180,6 +180,22 @@ export const db = {
 
   // ── Bookings ──
   createBooking: async (slotId: string, clientId: string) => {
+    // Check for duplicate booking - prevent same client booking same slot twice
+    const { data: existingBooking } = await supabase
+      .from('bookings')
+      .select('id')
+      .eq('slot_id', slotId)
+      .eq('client_id', clientId)
+      .eq('status', 'booked')
+      .single();
+
+    if (existingBooking) {
+      return {
+        data: null,
+        error: { message: 'You have already booked this time slot' }
+      };
+    }
+
     // Insert booking
     const { data, error } = await supabase
       .from('bookings')
@@ -565,24 +581,46 @@ export const db = {
 
   // ── MESSAGING ──
   getMessages: async (userId: string, recipientId?: string) => {
+    console.log('=== GET MESSAGES ===');
+    console.log('User ID:', userId);
+    console.log('Recipient ID:', recipientId);
+
     let query = supabase
       .from('messages')
       .select(`
         *,
-        sender:sender_id(id, first_name, last_name, role),
-        recipient:recipient_id(id, first_name, last_name, role)
-      `)
-      .or(`sender_id.eq.${userId},recipient_id.eq.${userId}`)
-      .order('created_at', { ascending: false });
+        sender:profiles!messages_sender_id_fkey(id, email, role),
+        recipient:profiles!messages_recipient_id_fkey(id, email, role)
+      `);
 
     if (recipientId) {
+      // Get messages between specific users
       query = query.or(`and(sender_id.eq.${userId},recipient_id.eq.${recipientId}),and(sender_id.eq.${recipientId},recipient_id.eq.${userId})`);
+    } else {
+      // Get all messages for this user (sent or received)
+      query = query.or(`sender_id.eq.${userId},recipient_id.eq.${userId}`);
     }
 
-    return await query;
+    query = query.order('created_at', { ascending: false });
+
+    const { data, error } = await query;
+
+    console.log('getMessages query result:', {
+      data,
+      error,
+      dataLength: data?.length,
+      firstMessage: data?.[0]
+    });
+
+    return { data, error };
   },
 
   sendMessage: async (senderId: string, recipientId: string, content: string) => {
+    console.log('=== SEND MESSAGE ===');
+    console.log('Sender ID:', senderId);
+    console.log('Recipient ID:', recipientId);
+    console.log('Content:', content);
+
     // Send the message
     const { data: message, error: messageError } = await supabase
       .from('messages')
@@ -590,7 +628,12 @@ export const db = {
       .select()
       .single();
 
-    if (messageError) return { data: null, error: messageError };
+    console.log('Insert result:', { message, messageError });
+
+    if (messageError) {
+      console.error('Failed to insert message:', messageError);
+      return { data: null, error: messageError };
+    }
 
     // Create a notification for the recipient
     try {

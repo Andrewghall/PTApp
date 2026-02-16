@@ -74,8 +74,8 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
       if (profile) {
         setUserRole(profile.role);
 
-        // If admin, load all clients for starting new conversations
-        if (profile.role === 'admin') {
+        // If admin, load all clients AND other admins for messaging
+        if (profile.role === 'admin' || profile.role === 'pt_admin' || profile.role === 'software_admin') {
           const { data: clients } = await supabase
             .from('client_profiles')
             .select(`
@@ -87,20 +87,50 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
             .order('first_name');
 
           if (clients) {
-            setAllClients(clients.map((c: any) => ({
+            const clientList = clients.map((c: any) => ({
               id: c.profiles.id,
               first_name: c.first_name,
               last_name: c.last_name,
               email: c.profiles.email,
               role: 'client'
-            })));
+            }));
+
+            // If software_admin, also load PT admin
+            if (profile.role === 'software_admin') {
+              const { data: ptAdmin } = await supabase
+                .from('profiles')
+                .select('id, email, role')
+                .eq('role', 'pt_admin')
+                .single();
+
+              if (ptAdmin) {
+                const { data: ptProfile } = await supabase
+                  .from('client_profiles')
+                  .select('first_name, last_name')
+                  .eq('user_id', ptAdmin.id)
+                  .single();
+
+                clientList.push({
+                  id: ptAdmin.id,
+                  first_name: ptProfile?.first_name || 'PT',
+                  last_name: ptProfile?.last_name || 'Admin',
+                  email: ptAdmin.email,
+                  role: 'pt_admin'
+                });
+              }
+            }
+
+            setAllClients(clientList);
           }
         }
       }
 
-      // If client, get the admin user for starting new conversations
+      // If client, get the admin user (andrew@stratgen.co.uk for now)
       if (profile?.role === 'client') {
         console.log('Client detected - fetching admin user...');
+        console.log('Current user ID:', session.user.id);
+        console.log('Current user email:', session.user.email);
+
         const { data: admin, error: adminError } = await supabase
           .from('profiles')
           .select('id, email, role')
@@ -109,34 +139,57 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
           .single();
 
         console.log('Admin query result:', { admin, adminError });
+        console.log('Admin data:', admin);
+        console.log('Admin error details:', adminError?.message, adminError?.details, adminError?.hint);
 
         if (admin) {
-          // Try to get the admin's actual name from their profile/details
+          // Use email-based name for now
           const adminName = admin.email?.split('@')[0] || 'PT';
           const displayName = adminName.charAt(0).toUpperCase() + adminName.slice(1);
 
-          // Set admin user with friendly display name
-          setAdminUser({
+          const adminUserObj = {
             ...admin,
             first_name: displayName,
             last_name: '',
-          });
-          console.log('Admin user set:', displayName);
+          };
+
+          setAdminUser(adminUserObj);
+          console.log('Admin user SET successfully:', adminUserObj);
         } else {
           console.error('No admin user found in database!');
-          // Set a fallback admin user so messaging still works
-          setAdminUser({
-            id: 'fallback-admin',
-            email: 'pt@elevategym.com',
-            role: 'admin',
-            first_name: 'Your',
-            last_name: 'PT',
-          });
+          console.error('Error was:', adminError);
+        }
+
+        // Also load all other clients for client-to-client messaging
+        const { data: allClientsData } = await supabase
+          .from('client_profiles')
+          .select(`
+            id,
+            first_name,
+            last_name,
+            profiles!inner (id, email, role)
+          `)
+          .neq('user_id', session.user.id) // Exclude self
+          .order('first_name');
+
+        if (allClientsData) {
+          setAllClients(allClientsData.map((c: any) => ({
+            id: c.profiles.id,
+            first_name: c.first_name,
+            last_name: c.last_name,
+            email: c.profiles.email,
+            role: 'client'
+          })));
         }
       }
 
       // Get all messages for this user
-      const { data: allMessages } = await db.getMessages(session.user.id);
+      const { data: allMessages, error: messagesError } = await db.getMessages(session.user.id);
+
+      console.log('=== MESSAGES LOADED ===');
+      console.log('Messages error:', messagesError);
+      console.log('Messages count:', allMessages?.length);
+      console.log('First message:', allMessages?.[0]);
 
       if (allMessages) {
         setMessages(allMessages);
@@ -144,9 +197,45 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
         // Group messages into conversations
         const conversationMap = new Map();
 
-        allMessages.forEach((msg: any) => {
-          const otherUser = msg.sender_id === session.user.id ? msg.recipient : msg.sender;
+        // For each message, we need to get the full user profile with names
+        for (const msg of allMessages) {
           const otherUserId = msg.sender_id === session.user.id ? msg.recipient_id : msg.sender_id;
+          const otherUserProfile = msg.sender_id === session.user.id ? msg.recipient : msg.sender;
+
+          if (!otherUserProfile) {
+            console.error('Missing user profile in message:', msg);
+            continue;
+          }
+
+          // Get the actual name from client_profiles if this is a client
+          let otherUser = {
+            id: otherUserId,
+            email: otherUserProfile.email,
+            role: otherUserProfile.role,
+            first_name: '',
+            last_name: '',
+            profile_image_url: null
+          };
+
+          if (otherUserProfile.role === 'client') {
+            // Fetch client profile to get name and profile image
+            const { data: clientProfile } = await supabase
+              .from('client_profiles')
+              .select('first_name, last_name, profile_image_url')
+              .eq('user_id', otherUserId)
+              .single();
+
+            if (clientProfile) {
+              otherUser.first_name = clientProfile.first_name;
+              otherUser.last_name = clientProfile.last_name;
+              otherUser.profile_image_url = clientProfile.profile_image_url;
+            }
+          } else {
+            // Admin - use email
+            const name = otherUserProfile.email?.split('@')[0] || 'Admin';
+            otherUser.first_name = name.charAt(0).toUpperCase() + name.slice(1);
+            otherUser.last_name = '';
+          }
 
           if (!conversationMap.has(otherUserId)) {
             conversationMap.set(otherUserId, {
@@ -167,12 +256,21 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
             const conv = conversationMap.get(otherUserId);
             conv.unreadCount += 1;
           }
-        });
+        }
 
-        // Convert to array and sort by latest message
+        // Convert to array and sort: Admin always first, then by latest message
         const convArray = Array.from(conversationMap.values()).sort((a, b) => {
+          // Admin always at top
+          if (a.user.role === 'admin' || a.user.role === 'pt_admin') return -1;
+          if (b.user.role === 'admin' || b.user.role === 'pt_admin') return 1;
+
+          // Then sort by latest message time
           return new Date(b.lastMessage.created_at).getTime() - new Date(a.lastMessage.created_at).getTime();
         });
+
+        console.log('=== CONVERSATIONS ===');
+        console.log('Total conversations:', convArray.length);
+        console.log('Conversations:', convArray);
 
         setConversations(convArray);
 
@@ -191,26 +289,11 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
     console.log('=== START NEW CONVERSATION ===');
     console.log('userRole:', userRole);
     console.log('adminUser:', adminUser);
+    console.log('allClients:', allClients);
+    console.log('Will show in list:', userRole === 'client' && adminUser ? [adminUser, ...allClients] : allClients);
 
-    if (userRole === 'client') {
-      console.log('User is CLIENT - opening chat with PT');
-      if (!adminUser) {
-        console.log('ERROR: No admin user found!');
-        return;
-      }
-      // Create a conversation object for the admin/PT
-      setSelectedConversation({
-        user: adminUser,
-        userId: adminUser.id,
-        lastMessage: null,
-        unreadCount: 0,
-      });
-      setShowChatModal(true);
-    } else {
-      console.log('User is ADMIN - showing client selector');
-      // Admin - show client selector
-      setShowClientSelector(true);
-    }
+    // Everyone can now select who to message
+    setShowClientSelector(true);
   };
 
   const startConversationWithClient = (client: any) => {
@@ -262,11 +345,22 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
     setSending(true);
     try {
-      await db.sendMessage(userId, selectedConversation.userId, messageContent);
-      // Reload to get the real message with proper ID from server
-      loadData();
+      const { data, error } = await db.sendMessage(userId, selectedConversation.userId, messageContent);
+
+      if (error) {
+        console.error('Send message error:', error);
+        alert(`Failed to send message: ${error.message || 'Unknown error'}`);
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(m => m.id !== tempId));
+        setNewMessage(messageContent); // Restore the message text
+      } else {
+        console.log('Message sent successfully:', data);
+        // Reload to get the real message with proper ID from server
+        loadData();
+      }
     } catch (error: any) {
       console.error('Error sending message:', error);
+      alert(`Failed to send message: ${error.message || 'Unknown error'}`);
       // Remove optimistic message on error
       setMessages(prev => prev.filter(m => m.id !== tempId));
       setNewMessage(messageContent); // Restore the message text
@@ -276,14 +370,27 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
   };
 
   const getConversationMessages = () => {
-    if (!selectedConversation || !userId) return [];
+    if (!selectedConversation || !userId) {
+      console.log('getConversationMessages: Missing data', { selectedConversation, userId });
+      return [];
+    }
 
-    return messages
+    const filtered = messages
       .filter((msg: any) =>
         (msg.sender_id === userId && msg.recipient_id === selectedConversation.userId) ||
         (msg.sender_id === selectedConversation.userId && msg.recipient_id === userId)
       )
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+    console.log('=== CONVERSATION MESSAGES ===');
+    console.log('Total messages in state:', messages.length);
+    console.log('Filtered messages for conversation:', filtered.length);
+    console.log('userId:', userId);
+    console.log('selectedConversation.userId:', selectedConversation.userId);
+    console.log('First 3 messages:', messages.slice(0, 3));
+    console.log('Filtered messages:', filtered);
+
+    return filtered;
   };
 
   if (loading) {
@@ -320,18 +427,9 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
               {userRole === 'admin' ? 'Client communications' : 'Chat with your PT'}
             </Text>
           </View>
-          {userRole === 'admin' ? (
-            <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
-              <Ionicons name="create-outline" size={24} color="white" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={startNewConversation} style={styles.messagePTButton}>
-              <Ionicons name="chatbubble" size={18} color="white" />
-              <Text style={styles.messagePTButtonText}>
-                Message {adminUser?.first_name || 'PT'}
-              </Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={startNewConversation} style={styles.newMessageButton}>
+            <Text style={styles.newMessageButtonText}>New Message</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Conversations List */}
@@ -355,12 +453,19 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
               onPress={() => openConversation(item)}
             >
               <View style={styles.avatarContainer}>
-                <View style={[styles.avatarCircle, item.user.role === 'admin' && styles.avatarCircleAdmin]}>
-                  <Text style={styles.avatarText}>
-                    {item.user.first_name?.[0]?.toUpperCase() || 'U'}
-                    {item.user.last_name?.[0]?.toUpperCase() || ''}
-                  </Text>
-                </View>
+                {item.user.profile_image_url ? (
+                  <Image
+                    source={{ uri: item.user.profile_image_url }}
+                    style={styles.avatarImage}
+                  />
+                ) : (
+                  <View style={[styles.avatarCircle, item.user.role === 'admin' && styles.avatarCircleAdmin]}>
+                    <Text style={styles.avatarText}>
+                      {item.user.first_name?.[0]?.toUpperCase() || 'U'}
+                      {item.user.last_name?.[0]?.toUpperCase() || ''}
+                    </Text>
+                  </View>
+                )}
                 {item.unreadCount > 0 && (
                   <View style={styles.unreadBadge}>
                     <Text style={styles.unreadBadgeText}>{item.unreadCount}</Text>
@@ -370,9 +475,18 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
 
               <View style={styles.conversationContent}>
                 <View style={styles.conversationHeader}>
-                  <Text style={styles.conversationName}>
-                    {item.user.first_name} {item.user.last_name}
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.conversationName}>
+                      {item.user.first_name && item.user.last_name
+                        ? `${item.user.first_name} ${item.user.last_name}`
+                        : item.user.first_name || item.user.email || 'Unknown User'}
+                    </Text>
+                    {item.user.email && (
+                      <Text style={styles.conversationEmail}>
+                        {item.user.email}
+                      </Text>
+                    )}
+                  </View>
                   <Text style={styles.conversationTime}>
                     {format(new Date(item.lastMessage.created_at), 'MMM d, h:mm a')}
                   </Text>
@@ -406,29 +520,59 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.clientSelectorContainer}>
             <View style={styles.clientSelectorHeader}>
-              <Text style={styles.clientSelectorTitle}>Select Client</Text>
+              <Text style={styles.clientSelectorTitle}>New Message</Text>
               <TouchableOpacity onPress={() => setShowClientSelector(false)}>
-                <Ionicons name="close" size={28} color="#6b7280" />
+                {Platform.OS === 'web' ? (
+                  <Text style={{ fontSize: 28, color: '#6b7280', fontWeight: 'bold' }}>×</Text>
+                ) : (
+                  <Ionicons name="close" size={28} color="#6b7280" />
+                )}
               </TouchableOpacity>
             </View>
             <FlatList
-              data={allClients}
+              data={
+                userRole === 'client' && adminUser
+                  ? [adminUser, ...allClients] // PT admin first for clients
+                  : userRole === 'client' && !adminUser
+                  ? allClients // Show other clients even if no admin found
+                  : allClients
+              }
+              ListEmptyComponent={() => (
+                <View style={{ padding: 40, alignItems: 'center' }}>
+                  <Text style={{ color: '#6b7280', textAlign: 'center', marginBottom: 12 }}>
+                    {userRole === 'client' && !adminUser
+                      ? 'No admin user found. Please contact support.'
+                      : 'No users available to message'}
+                  </Text>
+                </View>
+              )}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={styles.clientSelectorItem}
                   onPress={() => startConversationWithClient(item)}
                 >
-                  <View style={styles.clientSelectorAvatar}>
-                    <Ionicons name="person" size={24} color="#3b82f6" />
+                  <View style={[
+                    styles.clientSelectorAvatar,
+                    item.role === 'pt_admin' && styles.clientSelectorAvatarPT
+                  ]}>
+                    <Text style={styles.avatarText}>
+                      {item.first_name?.[0]?.toUpperCase() || 'U'}
+                      {item.last_name?.[0]?.toUpperCase() || ''}
+                    </Text>
                   </View>
                   <View style={styles.clientSelectorInfo}>
                     <Text style={styles.clientSelectorName}>
                       {item.first_name} {item.last_name}
+                      {item.role === 'pt_admin' && ' (PT)'}
                     </Text>
                     <Text style={styles.clientSelectorEmail}>{item.email}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                  {Platform.OS === 'web' ? (
+                    <Text style={{ fontSize: 20, color: '#9ca3af' }}>›</Text>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+                  )}
                 </TouchableOpacity>
               )}
               contentContainerStyle={styles.clientSelectorList}
@@ -444,17 +588,25 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
         onRequestClose={() => setShowChatModal(false)}
       >
         <SafeAreaView style={styles.chatContainer}>
-          {/* Chat Header */}
-          <View style={styles.chatHeader}>
+          {/* Hero Banner */}
+          <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
+
+          {/* Navigation Bar - Back Button Only */}
+          <View style={styles.navigationBar}>
             <TouchableOpacity
+              style={styles.backButton}
               onPress={() => {
                 setShowChatModal(false);
                 setSelectedConversation(null);
               }}
-              style={styles.backButton}
             >
               <Ionicons name="arrow-back" size={24} color="#1f2937" />
+              <Text style={styles.backButtonText}>Back to Messages</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Chat Header */}
+          <View style={styles.chatHeader}>
             {selectedConversation && (
               <View style={styles.chatHeaderInfo}>
                 <Text style={styles.chatHeaderName}>
@@ -465,7 +617,6 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
                 </Text>
               </View>
             )}
-            <View style={{ width: 24 }} />
           </View>
 
           {/* Messages */}
@@ -515,7 +666,7 @@ const MessagingScreen: React.FC<MessagingScreenProps> = ({ navigation }) => {
               {sending ? (
                 <ActivityIndicator size="small" color="white" />
               ) : (
-                <Ionicons name="send" size={20} color="white" />
+                <Text style={styles.sendButtonText}>Send</Text>
               )}
             </TouchableOpacity>
           </KeyboardAvoidingView>
@@ -589,9 +740,9 @@ const styles = StyleSheet.create({
   },
   newMessageButton: {
     backgroundColor: '#3b82f6',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -600,23 +751,9 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
-  messagePTButton: {
-    backgroundColor: '#10b981',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 8,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  messagePTButtonText: {
+  newMessageButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
   },
   headerTitle: {
@@ -657,6 +794,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  avatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+  },
   avatarCircleAdmin: {
     backgroundColor: '#10b981',
   },
@@ -696,6 +838,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1f2937',
   },
+  conversationEmail: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+  },
   conversationTime: {
     fontSize: 12,
     color: '#9ca3af',
@@ -733,17 +880,13 @@ const styles = StyleSheet.create({
   chatHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     padding: 16,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e5e7eb',
   },
-  backButton: {
-    padding: 4,
-  },
   chatHeaderInfo: {
-    flex: 1,
     alignItems: 'center',
   },
   chatHeaderName: {
@@ -810,7 +953,7 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   sendButton: {
-    width: 40,
+    paddingHorizontal: 20,
     height: 40,
     borderRadius: 20,
     backgroundColor: '#3b82f6',
@@ -819,6 +962,11 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#9ca3af',
+  },
+  sendButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   modalOverlay: {
     flex: 1,
@@ -860,10 +1008,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#dbeafe',
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 12,
+  },
+  clientSelectorAvatarPT: {
+    backgroundColor: '#10b981',
   },
   clientSelectorInfo: {
     flex: 1,

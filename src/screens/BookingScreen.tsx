@@ -152,20 +152,20 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
       const sessionDate = format(parseISO(selectedSlot.start_time), 'EEEE, MMM d');
       const sessionTime = format(parseISO(selectedSlot.start_time), 'h:mm a');
 
-      // Close confirm modal first
-      setShowConfirmModal(false);
-      setSelectedSlot(null);
-
-      // Reload data
-      await loadUserAndData();
-
-      // Set success message data and show success modal
+      // Set success message data FIRST
       setSuccessMessage({
         date: sessionDate,
         time: sessionTime,
         remaining: newBalance
       });
+
+      // Close confirm modal and show success modal immediately (no flash)
+      setShowConfirmModal(false);
       setShowSuccessModal(true);
+      setSelectedSlot(null);
+
+      // Reload data in background (after modals are already switched)
+      await loadUserAndData();
     } catch (error: any) {
       console.error('Booking failed:', error);
       Alert.alert('Booking Failed', error.message || 'Failed to book session. Please try again.');

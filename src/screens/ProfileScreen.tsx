@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -30,12 +31,14 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
   const [profileImage, setProfileImage] = useState<string | null>(null);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [phone, setPhone] = useState('');
+  const [gender, setGender] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveMsg, setSaveMsg] = useState<string | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
   const [totalSessions, setTotalSessions] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
   const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
+  const [userEmail, setUserEmail] = useState('');
 
   useEffect(() => {
     loadProfileData();
@@ -48,15 +51,17 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
       if (profile) {
         setClientProfile(profile);
         setPhone(profile.phone || '');
+        setGender(profile.gender || '');
 
-        // Get user role
+        // Get user role and email from profiles table
         const { data: userProfile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, email')
           .eq('id', userId)
           .single();
-        if (userProfile?.role) {
+        if (userProfile) {
           setUserRole(userProfile.role);
+          setUserEmail(userProfile.email || '');
         }
 
         // Load profile image if exists
@@ -86,6 +91,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 
     const updates: any = {};
     if (field === 'phone') updates.phone = phone;
+    if (field === 'gender') updates.gender = gender;
 
     const { error } = await db.updateClientProfile(clientProfile.id, updates);
     setSaving(false);
@@ -102,7 +108,66 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
   };
 
   const handleImageUpload = async () => {
-    // Request permission to access media library
+    // On web, use native file input instead of ImagePicker
+    if (Platform.OS === 'web') {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+
+      input.onchange = async (e: any) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!clientProfile?.id) {
+          Alert.alert('Error', 'Profile not loaded');
+          return;
+        }
+
+        try {
+          // Create preview URL
+          const imageUri = URL.createObjectURL(file);
+          setProfileImage(imageUri); // Update UI immediately
+
+          // Upload to Supabase Storage
+          const fileExt = file.name.split('.').pop() || 'jpg';
+          const fileName = `${clientProfile.id}-${Date.now()}.${fileExt}`;
+          const filePath = `${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('profile-images')
+            .upload(filePath, file, {
+              contentType: file.type,
+              upsert: true
+            });
+
+          if (uploadError) throw uploadError;
+
+          // Get public URL
+          const { data: urlData } = supabase.storage
+            .from('profile-images')
+            .getPublicUrl(filePath);
+
+          // Save URL to database
+          const { error: updateError } = await db.updateClientProfile(clientProfile.id, {
+            profile_image_url: urlData.publicUrl
+          });
+
+          if (updateError) throw updateError;
+
+          Alert.alert('Success', 'Profile picture updated!');
+          await loadProfileData();
+        } catch (error: any) {
+          Alert.alert('Error', error.message || 'Failed to upload image');
+          console.error('Image upload error:', error);
+          setProfileImage(clientProfile.profile_image_url || null);
+        }
+      };
+
+      input.click();
+      return;
+    }
+
+    // Native mobile image picker
     const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
@@ -110,7 +175,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
       return;
     }
 
-    // Launch image picker
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -121,15 +185,18 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
     if (!result.canceled && result.assets && result.assets[0]) {
       const imageUri = result.assets[0].uri;
 
-      try {
-        // Show loading
-        setProfileImage(imageUri); // Update UI immediately with local image
+      if (!clientProfile?.id) {
+        Alert.alert('Error', 'Profile not loaded');
+        return;
+      }
 
-        // Upload to Supabase Storage
+      try {
+        setProfileImage(imageUri);
+
         const response = await fetch(imageUri);
         const blob = await response.blob();
         const fileExt = imageUri.split('.').pop() || 'jpg';
-        const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
+        const fileName = `${clientProfile.id}-${Date.now()}.${fileExt}`;
         const filePath = `${fileName}`;
 
         const { error: uploadError } = await supabase.storage
@@ -141,22 +208,22 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 
         if (uploadError) throw uploadError;
 
-        // Get public URL
         const { data: urlData } = supabase.storage
           .from('profile-images')
           .getPublicUrl(filePath);
 
-        // Save URL to database
-        const { error: updateError } = await db.updateClientProfile(profile.id, {
+        const { error: updateError } = await db.updateClientProfile(clientProfile.id, {
           profile_image_url: urlData.publicUrl
         });
 
         if (updateError) throw updateError;
 
         Alert.alert('Success', 'Profile picture updated!');
+        await loadProfileData();
       } catch (error: any) {
         Alert.alert('Error', error.message || 'Failed to upload image');
         console.error('Image upload error:', error);
+        setProfileImage(clientProfile.profile_image_url || null);
       }
     }
   };
@@ -236,7 +303,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
             </View>
           </TouchableOpacity>
           <Text style={styles.profileName}>{fullName}</Text>
-          <Text style={styles.profileEmail}>{clientProfile.email || 'No email'}</Text>
+          <Text style={styles.profileEmail}>{userEmail || 'No email'}</Text>
           <TouchableOpacity onPress={handleImageUpload} style={styles.uploadButton}>
             <Text style={styles.uploadButtonText}>Change Photo</Text>
           </TouchableOpacity>
@@ -303,7 +370,7 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{clientProfile.email || 'Not set'}</Text>
+            <Text style={styles.infoValue}>{userEmail || 'Not set'}</Text>
           </View>
 
           <View style={styles.infoRow}>
@@ -347,6 +414,110 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
                 style={{ flexDirection: 'row', alignItems: 'center' }}
               >
                 <Text style={[styles.infoValue, { marginRight: 8 }]}>{phone || 'Not set'}</Text>
+                <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Gender</Text>
+            {editingField === 'gender' ? (
+              <View style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => setGender('male')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: gender === 'male' ? '#3b82f6' : '#f3f4f6',
+                      borderWidth: 1,
+                      borderColor: gender === 'male' ? '#3b82f6' : '#e5e7eb',
+                    }}
+                  >
+                    <Text style={{
+                      textAlign: 'center',
+                      fontWeight: '600',
+                      color: gender === 'male' ? '#fff' : '#6b7280',
+                    }}>Male</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => setGender('female')}
+                    style={{
+                      flex: 1,
+                      paddingVertical: 10,
+                      paddingHorizontal: 12,
+                      borderRadius: 8,
+                      backgroundColor: gender === 'female' ? '#3b82f6' : '#f3f4f6',
+                      borderWidth: 1,
+                      borderColor: gender === 'female' ? '#3b82f6' : '#e5e7eb',
+                    }}
+                  >
+                    <Text style={{
+                      textAlign: 'center',
+                      fontWeight: '600',
+                      color: gender === 'female' ? '#fff' : '#6b7280',
+                    }}>Female</Text>
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setGender('prefer_not_to_say')}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 8,
+                    backgroundColor: gender === 'prefer_not_to_say' ? '#3b82f6' : '#f3f4f6',
+                    borderWidth: 1,
+                    borderColor: gender === 'prefer_not_to_say' ? '#3b82f6' : '#e5e7eb',
+                    marginBottom: 8,
+                  }}
+                >
+                  <Text style={{
+                    textAlign: 'center',
+                    fontWeight: '600',
+                    color: gender === 'prefer_not_to_say' ? '#fff' : '#6b7280',
+                  }}>Prefer not to say</Text>
+                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity
+                    onPress={() => saveField('gender')}
+                    disabled={saving}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#3b82f6',
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: '#fff', fontWeight: '600', textAlign: 'center' }}>
+                      {saving ? '...' : 'Save'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => {
+                      setEditingField(null);
+                      setGender(clientProfile.gender || '');
+                    }}
+                    style={{
+                      flex: 1,
+                      backgroundColor: '#f3f4f6',
+                      paddingVertical: 10,
+                      borderRadius: 8,
+                    }}
+                  >
+                    <Text style={{ color: '#6b7280', fontWeight: '600', textAlign: 'center' }}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setEditingField('gender')}
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+              >
+                <Text style={[styles.infoValue, { marginRight: 8 }]}>
+                  {gender === 'male' ? 'Male' : gender === 'female' ? 'Female' : gender === 'prefer_not_to_say' ? 'Prefer not to say' : 'Not set'}
+                </Text>
                 <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>Edit</Text>
               </TouchableOpacity>
             )}
