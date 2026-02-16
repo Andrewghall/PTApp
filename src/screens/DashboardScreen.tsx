@@ -525,7 +525,6 @@ const styles = StyleSheet.create({
   },
   contentContainer: {
     paddingBottom: 120,
-    flexGrow: 1,
   },
   heroBanner: {
     width: '100%',
