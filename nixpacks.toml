@@ -4,5 +4,8 @@ nixPkgs = ['nodejs_20']
 [phases.install]
 cmds = ['npm install --global serve']
 
+[phases.build]
+cmds = ['node fix-html.js']
+
 [start]
 cmd = 'serve dist -s -p $PORT'
