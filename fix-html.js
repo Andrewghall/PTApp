@@ -52,8 +52,24 @@ function copyDirSync(srcDir, destDir) {
   }
 }
 
-// Step 2: Move app files into dist/app/
-console.log('📦 Moving app files to dist/app/...');
+// Helper: recursive directory delete
+function rmDirSync(dir) {
+  if (!fs.existsSync(dir)) return;
+  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  for (const entry of entries) {
+    const fullPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      rmDirSync(fullPath);
+    } else {
+      fs.unlinkSync(fullPath);
+    }
+  }
+  fs.rmdirSync(dir);
+}
+
+// Step 2: Copy app files into dist/app/ then clean originals
+// (using copy+delete instead of rename to avoid EXDEV errors in Docker)
+console.log('📦 Copying app files to dist/app/...');
 
 // Create app directory
 if (!fs.existsSync(appDir)) {
@@ -63,11 +79,18 @@ if (!fs.existsSync(appDir)) {
 // Get all files/dirs in dist except 'app' itself
 const distContents = fs.readdirSync(distDir).filter(item => item !== 'app');
 
-// Move everything into app/
+// Copy everything into app/, then delete originals
 for (const item of distContents) {
   const src = path.join(distDir, item);
   const dest = path.join(appDir, item);
-  fs.renameSync(src, dest);
+  const stat = fs.statSync(src);
+  if (stat.isDirectory()) {
+    copyDirSync(src, dest);
+    rmDirSync(src);
+  } else {
+    fs.copyFileSync(src, dest);
+    fs.unlinkSync(src);
+  }
 }
 console.log(`✅ Moved ${distContents.length} items to dist/app/`);
 
