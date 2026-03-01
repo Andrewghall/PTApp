@@ -65,6 +65,30 @@ function AdminStack() {
   );
 }
 
+const linking = {
+  prefixes: [],
+  config: {
+    screens: {
+      Login: 'login',
+      DashboardMain: '',
+      Book: 'book',
+      Messages: 'messages',
+      History: 'history',
+      Refer: 'refer',
+      Credits: 'credits',
+      Workout: 'workout',
+      Analytics: 'analytics',
+      Profile: 'profile',
+      Notifications: 'notifications',
+      MyProgramme: 'programme',
+      Admin: 'admin',
+      BlockBookings: 'admin/block-bookings',
+      ProgrammeAssignments: 'admin/programme-assignments',
+      ClientDetails: 'admin/client/:clientId',
+    },
+  },
+};
+
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -149,7 +173,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <NavigationContainer>
+      <NavigationContainer linking={linking}>
         {!session ? (
           <Stack.Navigator screenOptions={{ headerShown: false }}>
             <Stack.Screen name="Login">
