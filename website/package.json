@@ -1,0 +1,11 @@
+{
+  "name": "elevate-gym-website",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "npx serve . -s -p ${PORT:-3000}"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}
