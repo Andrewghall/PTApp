@@ -120,18 +120,13 @@ ul {
   height: 48px;
   width: auto;
   transition: height 0.3s var(--ease);
-  /* Blend white background into dark nav */
-  mix-blend-mode: screen;
-  filter: brightness(1.1);
+  /* Invert white bg to black, preserve gold hue, lighten hides residual bg */
+  filter: invert(1) hue-rotate(180deg) brightness(1.3);
+  mix-blend-mode: lighten;
 }
 
 .nav.scrolled .nav-logo img {
   height: 36px;
-  mix-blend-mode: normal;
-  filter: none;
-  background: white;
-  border-radius: 4px;
-  padding: 2px 6px;
 }
 
 .nav-menu {
@@ -869,6 +864,8 @@ ul {
   height: 48px;
   width: auto;
   margin-bottom: 12px;
+  filter: invert(1) hue-rotate(180deg) brightness(1.3);
+  mix-blend-mode: lighten;
 }
 
 .footer-tagline {
