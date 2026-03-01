@@ -248,7 +248,11 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
   };
 
   const getSlotsForDay = (day: Date) => {
-    return slots.filter((slot) => isSameDay(parseISO(slot.start_time), day));
+    const now = new Date();
+    return slots.filter((slot) => {
+      const slotTime = parseISO(slot.start_time);
+      return isSameDay(slotTime, day) && slotTime > now;
+    });
   };
 
   const isSlotBooked = (slotId: string) => {

@@ -137,21 +137,41 @@ const MenuItem: React.FC<MenuItemProps> = ({ icon, label, badge, onPress }) => {
 };
 
 export const HamburgerButton: React.FC<{ onPress: () => void }> = ({ onPress }) => {
+  const navigation = useNavigation<any>();
+  const canGoBack = navigation.canGoBack();
+
   return (
-    <TouchableOpacity onPress={onPress} style={styles.hamburgerButton}>
-      <View style={styles.hamburgerIcon}>
-        <View style={styles.hamburgerLine} />
-        <View style={styles.hamburgerLine} />
-        <View style={styles.hamburgerLine} />
-      </View>
-    </TouchableOpacity>
+    <View style={styles.navButtonRow}>
+      {canGoBack && (
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={22} color="#ffffff" />
+        </TouchableOpacity>
+      )}
+      <TouchableOpacity onPress={onPress} style={styles.hamburgerButton}>
+        <View style={styles.hamburgerIcon}>
+          <View style={styles.hamburgerLine} />
+          <View style={styles.hamburgerLine} />
+          <View style={styles.hamburgerLine} />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  navButtonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  backButton: {
+    padding: 8,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    borderRadius: 8,
+  },
   hamburgerButton: {
     padding: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
     borderRadius: 8,
   },
   hamburgerIcon: {
@@ -162,7 +182,7 @@ const styles = StyleSheet.create({
   hamburgerLine: {
     width: 24,
     height: 3,
-    backgroundColor: '#1f2937',
+    backgroundColor: '#ffffff',
     borderRadius: 2,
   },
   modalOverlay: {

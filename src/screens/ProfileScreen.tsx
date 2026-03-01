@@ -313,40 +313,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal Information</Text>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Gender</Text>
-            <Text style={styles.infoValue}>
-              {clientProfile.gender === 'male' ? 'Male' : clientProfile.gender === 'female' ? 'Female' : 'Not specified'}
-            </Text>
-          </View>
-
-          {clientProfile.date_of_birth && (
-            <>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>Date of Birth</Text>
-                <Text style={styles.infoValue}>
-                  {new Date(clientProfile.date_of_birth).toLocaleDateString('en-US', {
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric',
-                  })}
-                </Text>
-              </View>
-
-              {age && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Age</Text>
-                  <Text style={styles.infoValue}>{age} years</Text>
-                </View>
-              )}
-            </>
-          )}
-        </View>
-
-        {/* Contact Information — editable */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Contact Information</Text>
-
           {saveMsg && (
             <View
               style={{
@@ -367,57 +333,6 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
               </Text>
             </View>
           )}
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Email</Text>
-            <Text style={styles.infoValue}>{userEmail || 'Not set'}</Text>
-          </View>
-
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Mobile Number</Text>
-            {editingField === 'phone' ? (
-              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TextInput
-                  style={[styles.input, { flex: 1, marginBottom: 0, paddingVertical: 8, fontSize: 14 }]}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Enter mobile number"
-                  keyboardType="phone-pad"
-                />
-                <TouchableOpacity
-                  onPress={() => saveField('phone')}
-                  disabled={saving}
-                  style={{
-                    backgroundColor: '#3b82f6',
-                    paddingHorizontal: 14,
-                    paddingVertical: 8,
-                    borderRadius: 8,
-                  }}
-                >
-                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>
-                    {saving ? '...' : 'Save'}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => {
-                    setEditingField(null);
-                    setPhone(clientProfile.phone || '');
-                  }}
-                  style={{ paddingHorizontal: 8, paddingVertical: 8 }}
-                >
-                  <Text style={{ color: '#6b7280', fontSize: 13 }}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity
-                onPress={() => setEditingField('phone')}
-                style={{ flexDirection: 'row', alignItems: 'center' }}
-              >
-                <Text style={[styles.infoValue, { marginRight: 8 }]}>{phone || 'Not set'}</Text>
-                <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>Edit</Text>
-              </TouchableOpacity>
-            )}
-          </View>
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Gender</Text>
@@ -522,6 +437,85 @@ const ProfileScreen: React.FC<ProfileScreenProps> = ({ navigation, route }) => {
               </TouchableOpacity>
             )}
           </View>
+
+          {clientProfile.date_of_birth && (
+            <>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>Date of Birth</Text>
+                <Text style={styles.infoValue}>
+                  {new Date(clientProfile.date_of_birth).toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </Text>
+              </View>
+
+              {age && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Age</Text>
+                  <Text style={styles.infoValue}>{age} years</Text>
+                </View>
+              )}
+            </>
+          )}
+        </View>
+
+        {/* Contact Information — editable */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Contact Information</Text>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Email</Text>
+            <Text style={styles.infoValue}>{userEmail || 'Not set'}</Text>
+          </View>
+
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Mobile Number</Text>
+            {editingField === 'phone' ? (
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <TextInput
+                  style={[styles.input, { flex: 1, marginBottom: 0, paddingVertical: 8, fontSize: 14 }]}
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter mobile number"
+                  keyboardType="phone-pad"
+                />
+                <TouchableOpacity
+                  onPress={() => saveField('phone')}
+                  disabled={saving}
+                  style={{
+                    backgroundColor: '#3b82f6',
+                    paddingHorizontal: 14,
+                    paddingVertical: 8,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13 }}>
+                    {saving ? '...' : 'Save'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  onPress={() => {
+                    setEditingField(null);
+                    setPhone(clientProfile.phone || '');
+                  }}
+                  style={{ paddingHorizontal: 8, paddingVertical: 8 }}
+                >
+                  <Text style={{ color: '#6b7280', fontSize: 13 }}>Cancel</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <TouchableOpacity
+                onPress={() => setEditingField('phone')}
+                style={{ flexDirection: 'row', alignItems: 'center' }}
+              >
+                <Text style={[styles.infoValue, { marginRight: 8 }]}>{phone || 'Not set'}</Text>
+                <Text style={{ color: '#3b82f6', fontSize: 13, fontWeight: '600' }}>Edit</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
         </View>
 
         {/* Membership Information */}

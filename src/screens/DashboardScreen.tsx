@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  Platform,
+  BackHandler,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -50,6 +52,27 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
   useEffect(() => {
     loadDashboardData();
   }, [userId]);
+
+  // Handle back button / browser close confirmation
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+        e.preventDefault();
+        e.returnValue = '';
+      };
+      window.addEventListener('beforeunload', handleBeforeUnload);
+      return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    } else {
+      const backHandler = BackHandler.addEventListener('hardwareBackPress', () => {
+        Alert.alert('Exit App', 'Are you sure you want to exit?', [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Exit', onPress: () => BackHandler.exitApp() },
+        ]);
+        return true;
+      });
+      return () => backHandler.remove();
+    }
+  }, []);
 
   // Reload data when screen comes into focus (e.g., after booking)
   useFocusEffect(
@@ -226,6 +249,13 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
           </View>
           <View style={styles.headerActions}>
             <TouchableOpacity
+              onPress={() => navigation.navigate('Credits')}
+              style={styles.sessionsRemainingBadge}
+            >
+              <Text style={styles.sessionsRemainingCount}>{creditBalance}</Text>
+              <Text style={styles.sessionsRemainingLabel}>Sessions</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
               onPress={() => navigation.navigate('Notifications')}
               style={styles.notificationButton}
             >
@@ -238,26 +268,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
                 </View>
               )}
             </TouchableOpacity>
-            <TouchableOpacity onPress={onLogout} style={styles.logoutButton}>
-              <Ionicons name="log-out-outline" size={24} color="#dc2626" />
-            </TouchableOpacity>
           </View>
-        </View>
-
-        {/* Credits Card */}
-        <View style={styles.creditsCard}>
-          <View style={styles.creditsHeader}>
-            <Ionicons name="wallet" size={24} color="#3b82f6" />
-            <Text style={styles.creditsTitle}>Sessions Remaining</Text>
-          </View>
-          <Text style={styles.creditsAmount}>{creditBalance}</Text>
-          <Text style={styles.creditsSubtext}>Prepaid PT sessions</Text>
-          <TouchableOpacity
-            style={styles.buyCreditsButton}
-            onPress={() => navigation.navigate('Credits')}
-          >
-            <Text style={styles.buyCreditsText}>Buy More Sessions</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Next Session */}
@@ -562,7 +573,27 @@ const styles = StyleSheet.create({
   },
   headerActions: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
+  },
+  sessionsRemainingBadge: {
+    backgroundColor: '#10b981',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sessionsRemainingCount: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  sessionsRemainingLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.9)',
+    textTransform: 'uppercase',
   },
   notificationButton: {
     padding: 8,
