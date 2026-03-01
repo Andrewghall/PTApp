@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "website",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "website", "-p", "3333"],
+      "port": 3333
+    },
+    {
+      "name": "production",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "dist", "-p", "4000"],
+      "port": 4000
+    }
+  ]
+}
