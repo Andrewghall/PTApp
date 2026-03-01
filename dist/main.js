@@ -8,13 +8,19 @@ document.addEventListener('DOMContentLoaded', () => {
   const nav = document.getElementById('nav');
   const hero = document.getElementById('hero');
 
-  const navObserver = new IntersectionObserver(
-    ([entry]) => {
-      nav.classList.toggle('scrolled', !entry.isIntersecting);
-    },
-    { threshold: 0.1 }
-  );
-  navObserver.observe(hero);
+  if (hero) {
+    // Home page: toggle nav style based on hero visibility
+    const navObserver = new IntersectionObserver(
+      ([entry]) => {
+        nav.classList.toggle('scrolled', !entry.isIntersecting);
+      },
+      { threshold: 0.1 }
+    );
+    navObserver.observe(hero);
+  } else {
+    // Inner pages: nav is always in scrolled state (set via HTML class)
+    nav.classList.add('scrolled');
+  }
 
   // ---- Mobile Menu Toggle ----
   const navToggle = document.getElementById('navToggle');
@@ -35,19 +41,15 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  // ---- Smooth Scroll ----
-  document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', (e) => {
-      const targetId = anchor.getAttribute('href');
-      if (targetId === '#') return;
-      const target = document.querySelector(targetId);
-      if (target) {
-        e.preventDefault();
-        const navHeight = nav.offsetHeight;
-        const targetPosition = target.getBoundingClientRect().top + window.scrollY - navHeight;
-        window.scrollTo({ top: targetPosition, behavior: 'smooth' });
-      }
-    });
+  // ---- Active Nav Link (pathname-based) ----
+  const navLinks = document.querySelectorAll('.nav-link');
+  const currentPath = window.location.pathname;
+
+  navLinks.forEach(link => {
+    const href = link.getAttribute('href');
+    if (href === currentPath || href === currentPath.replace(/\/$/, '')) {
+      link.classList.add('active');
+    }
   });
 
   // ---- Scroll Reveal ----
@@ -77,41 +79,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   revealElements.forEach(el => revealObserver.observe(el));
 
-  // ---- Active Nav Link ----
-  const sections = document.querySelectorAll('section[id]');
-  const navLinks = document.querySelectorAll('.nav-link');
-
-  const activeObserver = new IntersectionObserver(
-    (entries) => {
-      entries.forEach(entry => {
-        if (entry.isIntersecting) {
-          const id = entry.target.id;
-          navLinks.forEach(link => {
-            link.classList.toggle('active', link.getAttribute('href') === `#${id}`);
-          });
-        }
-      });
-    },
-    { threshold: 0.3, rootMargin: '-80px 0px -50% 0px' }
-  );
-
-  sections.forEach(section => activeObserver.observe(section));
-
-  // ---- WhatsApp Float - Show after delay ----
-  const whatsappFloat = document.getElementById('whatsappFloat');
-  setTimeout(() => {
-    whatsappFloat.classList.add('visible');
-  }, 3000);
-
-  // Also show on scroll past hero
-  const whatsappObserver = new IntersectionObserver(
-    ([entry]) => {
-      if (!entry.isIntersecting) {
-        whatsappFloat.classList.add('visible');
+  // Force-reveal elements already in viewport on page load (inner pages)
+  requestAnimationFrame(() => {
+    revealElements.forEach(el => {
+      const rect = el.getBoundingClientRect();
+      if (rect.top < window.innerHeight && rect.bottom > 0) {
+        el.classList.add('visible');
+        revealObserver.unobserve(el);
       }
-    },
-    { threshold: 0.5 }
-  );
-  whatsappObserver.observe(hero);
+    });
+  });
+
+  // ---- WhatsApp Float - Always visible immediately ----
+  const whatsappFloat = document.getElementById('whatsappFloat');
+  if (whatsappFloat) {
+    whatsappFloat.classList.add('visible');
+  }
 
 });
