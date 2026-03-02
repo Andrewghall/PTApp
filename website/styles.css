@@ -1110,22 +1110,42 @@ ul {
 
   /* Hero mobile */
   .hero {
-    min-height: 600px;
+    min-height: 100svh;
+  }
+
+  .hero-bg img {
+    object-position: center 20%;
   }
 
   .hero-top {
-    top: 80px;
+    top: 70px;
+  }
+
+  .hero-title {
+    font-size: clamp(1.4rem, 5.5vw, 2.2rem);
+  }
+
+  .hero-content {
+    padding: 0 16px 24px;
+  }
+
+  .hero-subtitle {
+    font-size: 0.9rem;
+    margin-bottom: 20px;
   }
 
   .hero-ctas {
     flex-direction: column;
     align-items: center;
+    gap: 10px;
   }
 
   .hero-ctas .btn {
     width: 100%;
     max-width: 300px;
     justify-content: center;
+    padding: 12px 20px;
+    font-size: 13px;
   }
 
   .hero-scroll-indicator {
@@ -1148,7 +1168,21 @@ ul {
   }
 
   .lift-image {
-    height: 240px;
+    height: 220px;
+  }
+
+  .lift-image img {
+    object-position: center top;
+  }
+
+  .coach-image-frame {
+    padding: 20px;
+    aspect-ratio: 1 / 1;
+  }
+
+  .coach-image-frame img {
+    max-width: 90%;
+    max-height: 90%;
   }
 
   .benefits-grid {
@@ -1228,10 +1262,22 @@ ul {
 /* Small mobile */
 @media (max-width: 375px) {
   .hero-title {
-    font-size: 2rem;
+    font-size: 1.3rem;
+  }
+
+  .hero-top {
+    top: 60px;
   }
 
   .section-header h2 {
     font-size: 1.75rem;
+  }
+
+  .lift-image {
+    height: 180px;
+  }
+
+  .footer-brand img {
+    height: 40px;
   }
 }

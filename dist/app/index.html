@@ -1,232 +1,34 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="cache-version" content="1772439732382" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <head>
+    <meta charset="utf-8" />
+    <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="cache-version" content="1772454100112" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <title>PT Business App</title>
+    <!-- The `react-native-web` recommended style reset: https://necolas.github.io/react-native-web/docs/setup/#root-element -->
+    <style id="expo-reset">
+      /* These styles make the body full-height */
+      html,
+      body {
+        height: 100%;
+      }
+      /* These styles make the root element full-height */
+      #root {
+        display: flex;
+        height: 100%;
+        flex: 1;
+      }
+    </style>
+  <link rel="preload" href="/_expo/static/css/App-1d57933a69caaeb972d4b903004e6b81.css" as="style"><link rel="stylesheet" href="/_expo/static/css/App-1d57933a69caaeb972d4b903004e6b81.css"></head>
 
-  <title>Elevate Gym | Strength. Performance. Longevity.</title>
-  <meta name="description" content="Elevate Gym in Quarteira, Algarve - Personal strength training for all ages and fitness levels with Pedro Pereira. Build confidence, health, and lasting strength using the Starting Strength methodology. Welcoming coaching for beginners and experienced alike.">
-  <meta name="keywords" content="personal training, barbell training, Starting Strength, strength training, beginner friendly, over 40 fitness, over 50 fitness, Pedro Pereira, Elevate Gym, personal trainer, strength coach, women strength training, Quarteira, Algarve, Portugal, personal trainer Algarve">
-  <meta name="author" content="Pedro Pereira">
-  <meta name="robots" content="index, follow">
-  <link rel="canonical" href="https://elevategym.com/">
-
-  <!-- Open Graph -->
-  <meta property="og:title" content="Elevate Gym - Strength. Performance. Longevity.">
-  <meta property="og:description" content="Build real strength with proven barbell training in Quarteira, Algarve. Personal coaching by Pedro Pereira using the Starting Strength methodology.">
-  <meta property="og:image" content="https://elevategym.com/images/hero-banner.webp">
-  <meta property="og:url" content="https://elevategym.com/">
-  <meta property="og:type" content="website">
-  <meta property="og:site_name" content="Elevate Gym">
-
-  <!-- Twitter Card -->
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="Elevate Gym - Strength. Performance. Longevity.">
-  <meta name="twitter:description" content="Build real strength with proven barbell training. Personal coaching by Pedro Pereira.">
-  <meta name="twitter:image" content="https://elevategym.com/images/hero-banner.webp">
-
-  <!-- Preload critical assets -->
-  <link rel="preload" href="images/hero-banner.webp" as="image">
-  <link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" as="style">
-
-  <!-- Google Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
-  <!-- Styles -->
-  <link rel="stylesheet" href="styles.css">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="images/logo.png">
-
-  <!-- Schema.org Structured Data -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "HealthClub",
-    "name": "Elevate Gym",
-    "description": "Personal barbell training using the Starting Strength methodology in Quarteira, Algarve. Build real strength with expert coaching.",
-    "url": "https://elevategym.com",
-    "logo": "https://elevategym.com/images/logo.png",
-    "image": "https://elevategym.com/images/hero-banner.webp",
-    "email": "Pmartpereira@gmail.com",
-    "telephone": "+351926930575",
-    "slogan": "Strength. Performance. Longevity.",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "Quarteira",
-      "addressRegion": "Algarve",
-      "addressCountry": "PT"
-    },
-    "geo": {
-      "@type": "GeoCoordinates",
-      "latitude": "37.0693",
-      "longitude": "-8.1007"
-    },
-    "knowsAbout": ["Starting Strength", "Barbell Training", "Strength Training", "Personal Training"],
-    "founder": {
-      "@type": "Person",
-      "name": "Pedro Pereira",
-      "email": "Pmartpereira@gmail.com",
-      "jobTitle": "Head Coach & Founder"
-    },
-    "hasOfferCatalog": {
-      "@type": "OfferCatalog",
-      "name": "Training Services",
-      "itemListElement": [
-        {
-          "@type": "Offer",
-          "itemOffered": {
-            "@type": "Service",
-            "name": "Personal Training Session",
-            "description": "1-on-1 barbell-based strength training with expert coaching"
-          }
-        }
-      ]
-    }
-  }
-  </script>
-</head>
-<body>
-  <!-- Navigation -->
-  <header class="nav" id="nav">
-    <div class="nav-container">
-      <a href="/" class="nav-logo">
-        <img src="images/elevate-strength.png" alt="Elevate Gym Logo" width="160" height="64">
-      </a>
-
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation menu">
-        <span></span>
-        <span></span>
-        <span></span>
-      </button>
-
-      <nav class="nav-menu" id="navMenu">
-        <a href="/how-it-works.html" class="nav-link">How It Works</a>
-        <a href="/lifts.html" class="nav-link">The Lifts</a>
-        <a href="/coach.html" class="nav-link">Your Coach</a>
-        <a href="/contact.html" class="nav-link">Contact</a>
-        <a href="/app/" target="_blank" rel="noopener noreferrer" class="nav-login">Client Login</a>
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    <!-- Hero Section -->
-    <section class="hero" id="hero">
-      <div class="hero-bg">
-        <img src="images/hero-banner.webp" alt="Elevate Gym - Welcoming strength training for all ages and fitness levels" width="1920" height="1080">
-      </div>
-      <div class="hero-overlay"></div>
-      <div class="hero-content">
-        <h1 class="hero-title fade-in-up">Stronger at Every Age</h1>
-        <p class="hero-subtitle fade-in-up delay-1">Personalised strength training for every body, every age, every level.<br>No experience needed &mdash; just the willingness to start.</p>
-        <div class="hero-ctas fade-in-up delay-2">
-          <a href="/contact.html" class="btn btn-gold">Book a Free Consultation</a>
-          <a href="/how-it-works.html" class="btn btn-outline">See How It Works</a>
-        </div>
-      </div>
-      <div class="hero-scroll-indicator fade-in-up delay-3">
-        <span>Scroll</span>
-        <div class="scroll-arrow"></div>
-      </div>
-    </section>
-
-    <!-- Credentials Bar -->
-    <section class="credentials">
-      <div class="container">
-        <div class="credentials-grid">
-          <div class="credential-item reveal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z"/></svg>
-            <span>Proven Methodology</span>
-          </div>
-          <div class="credential-item reveal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            <span>Guided Every Step</span>
-          </div>
-          <div class="credential-item reveal">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            <span>All Ages &amp; Levels Welcome</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Why Elevate -->
-    <section class="why-elevate" id="why">
-      <div class="container">
-        <div class="section-header reveal">
-          <span class="section-tag">Why Choose Us</span>
-          <h2>Why Elevate</h2>
-        </div>
-
-        <div class="benefits-grid">
-          <div class="benefit-card reveal">
-            <div class="benefit-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            </div>
-            <h3>Welcoming to Everyone</h3>
-            <p>Never been to a gym? Nervous about starting? You're not alone &mdash; and you're in the right place. Most of our clients started exactly where you are now. Men and women, from their 30s to their 70s, training side by side.</p>
-          </div>
-
-          <div class="benefit-card reveal">
-            <div class="benefit-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
-            </div>
-            <h3>Your Coach, Your Pace</h3>
-            <p>Every session is one-on-one with Pedro. He'll guide your form, adjust your programme, and make sure you feel safe and supported &mdash; no rushing, no pressure, just steady progress.</p>
-          </div>
-
-          <div class="benefit-card reveal">
-            <div class="benefit-icon">
-              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-            </div>
-            <h3>See Your Progress</h3>
-            <p>Our app lets you book sessions, follow your programme, and watch your strength grow over time. There's nothing more motivating than seeing how far you've come.</p>
-            <a href="/app/" target="_blank" rel="noopener noreferrer" class="benefit-link">Open the App &rarr;</a>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Footer -->
-  <footer class="footer">
-    <div class="container">
-      <div class="footer-grid">
-        <div class="footer-brand">
-          <img src="images/elevate-strength.png" alt="Elevate Gym" width="140" height="56" loading="lazy">
-          <p class="footer-tagline">Strength &middot; Performance &middot; Longevity</p>
-          <p class="footer-location">Quarteira, Algarve, Portugal</p>
-        </div>
-        <div class="footer-links">
-          <h4>Quick Links</h4>
-          <a href="/how-it-works.html">How It Works</a>
-          <a href="/lifts.html">The Lifts</a>
-          <a href="/coach.html">Your Coach</a>
-          <a href="/contact.html">Contact</a>
-        </div>
-        <div class="footer-links">
-          <h4>Get Started</h4>
-          <a href="/app/" target="_blank" rel="noopener noreferrer">Client Login</a>
-          <a href="mailto:Pmartpereira@gmail.com">Email Pedro</a>
-          <a href="https://wa.me/351926930575" target="_blank" rel="noopener noreferrer">WhatsApp</a>
-        </div>
-      </div>
-      <div class="footer-bottom">
-        <p>&copy; 2026 Elevate Gym. All rights reserved.</p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Floating WhatsApp Button -->
-  <a href="https://wa.me/351926930575?text=Hi%20Pedro%2C%20I%27m%20interested%20in%20personal%20training%20at%20Elevate%20Gym." class="whatsapp-float" id="whatsappFloat" aria-label="Contact us on WhatsApp" target="_blank" rel="noopener noreferrer">
-    <svg width="28" height="28" viewBox="0 0 24 24" fill="white"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-  </a>
-
-  <script src="main.js"></script>
+  <body>
+    <!-- Use static rendering with Expo Router to support running without JavaScript. -->
+    <noscript>
+      You need to enable JavaScript to run this app.
+    </noscript>
+    <!-- The root element for your Expo app. -->
+    <div id="root"></div>
+  <script src="/_expo/static/js/web/AppEntry-bf9cdea5c6bef6e1637ad4662c617a30.js" defer></script>
 </body>
 </html>

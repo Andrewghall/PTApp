@@ -57,7 +57,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const revealObserver = new IntersectionObserver(
     (entries) => {
-      entries.forEach((entry, index) => {
+      entries.forEach((entry) => {
         if (entry.isIntersecting) {
           // Stagger animations within the same parent
           const siblings = entry.target.parentElement.querySelectorAll('.reveal');
@@ -74,21 +74,28 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     },
-    { threshold: 0.15, rootMargin: '0px 0px -40px 0px' }
+    { threshold: 0.01, rootMargin: '0px 0px 100px 0px' }
   );
 
   revealElements.forEach(el => revealObserver.observe(el));
 
-  // Force-reveal elements already in viewport on page load (inner pages)
-  requestAnimationFrame(() => {
+  // Force-reveal elements in viewport on page load (runs after layout)
+  function forceRevealVisible() {
     revealElements.forEach(el => {
-      const rect = el.getBoundingClientRect();
-      if (rect.top < window.innerHeight && rect.bottom > 0) {
-        el.classList.add('visible');
-        revealObserver.unobserve(el);
+      if (!el.classList.contains('visible')) {
+        const rect = el.getBoundingClientRect();
+        if (rect.top < window.innerHeight + 50 && rect.bottom > 0) {
+          el.classList.add('visible');
+          revealObserver.unobserve(el);
+        }
       }
     });
-  });
+  }
+
+  // Run multiple times to catch all layout shifts
+  requestAnimationFrame(forceRevealVisible);
+  setTimeout(forceRevealVisible, 100);
+  setTimeout(forceRevealVisible, 500);
 
   // ---- WhatsApp Float - Always visible immediately ----
   const whatsappFloat = document.getElementById('whatsappFloat');
