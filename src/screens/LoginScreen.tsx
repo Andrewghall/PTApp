@@ -8,13 +8,20 @@ import {
   TextInput,
   SafeAreaView,
   Image,
+  ActivityIndicator,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { auth } from '../lib/supabase';
 
-// Import the logo banner image
 const logoBanner = require('../../logo banner.png');
+
+const GOLD = '#c8a94e';
+const BG_DARK = '#0a0a0a';
+const BG_CARD = '#141414';
+const BG_INPUT = '#1a1a1a';
+const BORDER = '#2a2a2a';
+const TEXT_WHITE = '#ffffff';
+const TEXT_MUTED = '#9ca3af';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -44,37 +51,39 @@ const LoginScreen = () => {
     setSuccessMsg(null);
     setLoading(true);
 
-    if (isSignUp) {
-      const { error } = await auth.signUp(email, password, firstName, lastName, phone, dateOfBirth, gender, referralCode);
-      setLoading(false);
-      if (error) {
-        setErrorMsg(error.message);
-        return;
-      }
-      setSuccessMsg('Account created! Check your email to confirm, then sign in.');
-      setIsSignUp(false);
-      setEmail('');
-      setPassword('');
-      setFirstName('');
-      setLastName('');
-      setPhone('');
-      setDateOfBirth('');
-      setGender('');
-      setReferralCode('');
-    } else {
-      const { error } = await auth.signIn(email, password);
-      setLoading(false);
-      if (error) {
-        if (error.message?.toLowerCase().includes('email not confirmed')) {
-          setErrorMsg(
-            'Email not confirmed yet. Check your inbox for the confirmation link, or ask your admin to confirm your account.'
-          );
-        } else {
+    try {
+      if (isSignUp) {
+        const { error } = await auth.signUp(email, password, firstName, lastName, phone, dateOfBirth, gender, referralCode);
+        setLoading(false);
+        if (error) {
           setErrorMsg(error.message);
+          return;
         }
-        return;
+        setSuccessMsg('Account created! Check your email to confirm, then sign in.');
+        setIsSignUp(false);
+        setEmail('');
+        setPassword('');
+        setFirstName('');
+        setLastName('');
+        setPhone('');
+        setDateOfBirth('');
+        setGender('');
+        setReferralCode('');
+      } else {
+        const { error } = await auth.signIn(email, password);
+        setLoading(false);
+        if (error) {
+          if (error.message?.toLowerCase().includes('email not confirmed')) {
+            setErrorMsg('Email not confirmed yet. Check your inbox for the confirmation link.');
+          } else {
+            setErrorMsg(error.message);
+          }
+          return;
+        }
       }
-      // Success - auth state change will be handled by App.tsx
+    } catch (e: any) {
+      setLoading(false);
+      setErrorMsg(e?.message || 'Something went wrong. Please try again.');
     }
   };
 
@@ -83,6 +92,7 @@ const LoginScreen = () => {
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         <View style={styles.card}>
           <Image source={logoBanner} style={styles.heroBanner as any} resizeMode="cover" />
+
           <Text style={styles.subtitle}>
             {isSignUp ? 'Create your account' : 'Welcome back'}
           </Text>
@@ -100,111 +110,51 @@ const LoginScreen = () => {
 
           {isSignUp && (
             <>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>First Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={firstName}
-                  onChangeText={setFirstName}
-                  placeholder="First name"
-                />
-              </View>
-              <View style={styles.inputContainer}>
-                <Text style={styles.label}>Last Name</Text>
-                <TextInput
-                  style={styles.input}
-                  value={lastName}
-                  onChangeText={setLastName}
-                  placeholder="Last name"
-                />
+              <View style={styles.row}>
+                <View style={[styles.inputContainer, { flex: 1 }]}>
+                  <Text style={styles.label}>First Name</Text>
+                  <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor="#555" />
+                </View>
+                <View style={[styles.inputContainer, { flex: 1 }]}>
+                  <Text style={styles.label}>Last Name</Text>
+                  <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor="#555" />
+                </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Phone Number</Text>
-                <TextInput
-                  style={styles.input}
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Enter your phone number"
-                  keyboardType="phone-pad"
-                />
+                <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="Enter your phone number" placeholderTextColor="#555" keyboardType="phone-pad" />
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Date of Birth</Text>
-                <TextInput
-                  style={styles.input}
-                  value={dateOfBirth}
-                  onChangeText={setDateOfBirth}
-                  placeholder="DD/MM/YYYY"
-                  keyboardType="numbers-and-punctuation"
-                />
+                <TextInput style={styles.input} value={dateOfBirth} onChangeText={setDateOfBirth} placeholder="DD/MM/YYYY" placeholderTextColor="#555" />
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Gender (Optional)</Text>
                 <View style={styles.genderContainer}>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'male' && styles.genderButtonActive]}
-                    onPress={() => setGender('male')}
-                  >
-                    <Text style={[styles.genderButtonText, gender === 'male' && styles.genderButtonTextActive]}>
-                      Male
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'female' && styles.genderButtonActive]}
-                    onPress={() => setGender('female')}
-                  >
-                    <Text style={[styles.genderButtonText, gender === 'female' && styles.genderButtonTextActive]}>
-                      Female
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'other' && styles.genderButtonActive]}
-                    onPress={() => setGender('other')}
-                  >
-                    <Text style={[styles.genderButtonText, gender === 'other' && styles.genderButtonTextActive]}>
-                      Other
-                    </Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={[styles.genderButton, gender === 'prefer_not_to_say' && styles.genderButtonActive]}
-                    onPress={() => setGender('prefer_not_to_say')}
-                  >
-                    <Text style={[styles.genderButtonText, gender === 'prefer_not_to_say' && styles.genderButtonTextActive]}>
-                      Skip
-                    </Text>
-                  </TouchableOpacity>
+                  {(['male', 'female', 'other', 'prefer_not_to_say'] as const).map((g) => (
+                    <TouchableOpacity key={g} style={[styles.genderButton, gender === g && styles.genderButtonActive]} onPress={() => setGender(g)}>
+                      <Text style={[styles.genderButtonText, gender === g && styles.genderButtonTextActive]}>
+                        {g === 'prefer_not_to_say' ? 'Skip' : g.charAt(0).toUpperCase() + g.slice(1)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>Referral Code (Optional)</Text>
-                <TextInput
-                  style={styles.input}
-                  value={referralCode}
-                  onChangeText={(text) => setReferralCode(text.toUpperCase())}
-                  placeholder="Enter referral code"
-                  autoCapitalize="characters"
-                />
-                <Text style={styles.helperText}>
-                  Have a referral code? Both you and your friend get a free session!
-                </Text>
+                <TextInput style={styles.input} value={referralCode} onChangeText={(t) => setReferralCode(t.toUpperCase())} placeholder="Enter referral code" placeholderTextColor="#555" autoCapitalize="characters" />
+                <Text style={styles.helperText}>Have a referral code? Both you and your friend get a free session!</Text>
               </View>
             </>
           )}
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Email</Text>
-            <TextInput
-              style={styles.input}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter your email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+            <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Enter your email" placeholderTextColor="#555" keyboardType="email-address" autoCapitalize="none" />
           </View>
 
           <View style={styles.inputContainer}>
@@ -214,49 +164,23 @@ const LoginScreen = () => {
                 style={[styles.input, styles.passwordInput]}
                 value={password}
                 onChangeText={setPassword}
-                placeholder={isSignUp ? 'Choose a password (min 6 chars)' : 'Enter your password'}
+                placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
+                placeholderTextColor="#555"
                 secureTextEntry={!showPassword}
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword(!showPassword)}
-                style={styles.eyeIcon}
-              >
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
                 <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
                   {showPassword ? (
                     <>
-                      <Path
-                        d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"
-                        stroke="#9ca3af"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <Circle cx={12} cy={12} r={3} stroke="#9ca3af" strokeWidth={2} />
+                      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Circle cx={12} cy={12} r={3} stroke={TEXT_MUTED} strokeWidth={2} />
                     </>
                   ) : (
                     <>
-                      <Path
-                        d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"
-                        stroke="#9ca3af"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <Path
-                        d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"
-                        stroke="#9ca3af"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <Path
-                        d="M14.12 14.12a3 3 0 1 1-4.24-4.24"
-                        stroke="#9ca3af"
-                        strokeWidth={2}
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                      <Line x1={1} y1={1} x2={23} y2={23} stroke="#9ca3af" strokeWidth={2} strokeLinecap="round" />
+                      <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                      <Line x1={1} y1={1} x2={23} y2={23} stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" />
                     </>
                   )}
                 </Svg>
@@ -264,30 +188,15 @@ const LoginScreen = () => {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleAuth}
-            disabled={loading}
-          >
-            <Text style={styles.buttonText}>
-              {loading
-                ? isSignUp
-                  ? 'Creating account...'
-                  : 'Signing in...'
-                : isSignUp
-                ? 'Sign Up'
-                : 'Sign In'}
-            </Text>
+          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAuth} disabled={loading}>
+            {loading ? (
+              <ActivityIndicator color={BG_DARK} />
+            ) : (
+              <Text style={styles.buttonText}>{isSignUp ? 'SIGN UP' : 'SIGN IN'}</Text>
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={() => {
-              setIsSignUp(!isSignUp);
-              setErrorMsg(null);
-              setSuccessMsg(null);
-            }}
-            style={styles.switchButton}
-          >
+          <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setErrorMsg(null); setSuccessMsg(null); }} style={styles.switchButton}>
             <Text style={styles.switchButtonText}>
               {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
             </Text>
@@ -301,7 +210,7 @@ const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: BG_DARK,
   },
   scrollView: {
     flex: 1,
@@ -312,75 +221,81 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   card: {
-    backgroundColor: 'white',
+    backgroundColor: BG_CARD,
     borderRadius: 16,
     padding: 24,
+    maxWidth: 440,
+    width: '100%',
+    alignSelf: 'center',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  logoText: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   heroBanner: {
     width: '100%',
-    height: 200,
+    height: 180,
     borderRadius: 12,
     marginBottom: 20,
   },
   subtitle: {
     fontSize: 18,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     textAlign: 'center',
     marginBottom: 24,
   },
   errorBox: {
-    backgroundColor: '#fef2f2',
+    backgroundColor: '#3b1111',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#5b2020',
   },
   errorText: {
-    color: '#dc2626',
+    color: '#f87171',
     fontSize: 13,
     textAlign: 'center',
   },
   successBox: {
-    backgroundColor: '#f0fdf4',
+    backgroundColor: '#0f2d1a',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#1a4a2a',
   },
   successText: {
-    color: '#16a34a',
+    color: '#4ade80',
     fontSize: 13,
     textAlign: 'center',
+  },
+  row: {
+    flexDirection: 'row',
+    gap: 12,
   },
   inputContainer: {
     marginBottom: 16,
   },
   label: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#374151',
-    marginBottom: 8,
+    color: TEXT_MUTED,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   input: {
-    backgroundColor: '#f9fafb',
+    backgroundColor: BG_INPUT,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
-    padding: 12,
+    borderColor: BORDER,
+    borderRadius: 10,
+    padding: 14,
     fontSize: 16,
-    color: '#1f2937',
+    color: TEXT_WHITE,
   },
   passwordContainer: {
     position: 'relative',
@@ -390,32 +305,33 @@ const styles = StyleSheet.create({
   },
   eyeIcon: {
     position: 'absolute',
-    right: 12,
+    right: 14,
     top: 0,
     bottom: 0,
     justifyContent: 'center',
   },
   button: {
-    backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    padding: 14,
+    backgroundColor: GOLD,
+    borderRadius: 10,
+    padding: 16,
     alignItems: 'center',
     marginTop: 8,
   },
   buttonDisabled: {
-    backgroundColor: '#9ca3af',
+    opacity: 0.6,
   },
   buttonText: {
-    color: 'white',
+    color: BG_DARK,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
+    letterSpacing: 1.5,
   },
   switchButton: {
-    marginTop: 16,
+    marginTop: 20,
     alignItems: 'center',
   },
   switchButtonText: {
-    color: '#3b82f6',
+    color: GOLD,
     fontSize: 14,
     fontWeight: '500',
   },
@@ -427,30 +343,30 @@ const styles = StyleSheet.create({
   genderButton: {
     flex: 1,
     minWidth: '22%',
-    backgroundColor: '#f9fafb',
+    backgroundColor: BG_INPUT,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
-    borderRadius: 8,
+    borderColor: BORDER,
+    borderRadius: 10,
     paddingVertical: 10,
     paddingHorizontal: 8,
     alignItems: 'center',
   },
   genderButtonActive: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#3b82f6',
+    backgroundColor: '#2a2210',
+    borderColor: GOLD,
   },
   genderButtonText: {
     fontSize: 13,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     fontWeight: '500',
   },
   genderButtonTextActive: {
-    color: '#3b82f6',
+    color: GOLD,
     fontWeight: '600',
   },
   helperText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     marginTop: 6,
     fontStyle: 'italic',
   },
