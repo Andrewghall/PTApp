@@ -2,18 +2,6 @@
    Elevate Gym - Marketing Website Styles
    ============================================ */
 
-.sr-only {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  padding: 0;
-  margin: -1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
-  white-space: nowrap;
-  border: 0;
-}
-
 :root {
   /* Brand Colors */
   --gold:          #c8a94e;
@@ -236,7 +224,7 @@ ul {
   height: 100vh;
   min-height: 700px;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: center;
   overflow: hidden;
 }
@@ -251,7 +239,7 @@ ul {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  object-position: center top;
+  object-position: center;
 }
 
 .hero-overlay {
@@ -260,24 +248,10 @@ ul {
   z-index: 1;
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.7) 0%,
-    rgba(0, 0, 0, 0.2) 15%,
-    rgba(0, 0, 0, 0.0) 30%,
-    rgba(0, 0, 0, 0.0) 55%,
-    rgba(0, 0, 0, 0.5) 70%,
-    rgba(0, 0, 0, 0.9) 90%,
-    rgba(0, 0, 0, 0.95) 100%
+    rgba(0, 0, 0, 0.55) 0%,
+    rgba(0, 0, 0, 0.65) 40%,
+    rgba(0, 0, 0, 0.8) 100%
   );
-}
-
-.hero-top {
-  position: absolute;
-  top: 12%;
-  left: 0;
-  right: 0;
-  z-index: 2;
-  text-align: center;
-  padding: 0 24px;
 }
 
 .hero-content {
@@ -285,25 +259,24 @@ ul {
   z-index: 2;
   text-align: center;
   max-width: 800px;
-  padding: 0 24px 40px;
-  margin-top: 0;
+  padding: 0 24px;
+  margin-top: 120px;
 }
 
 .hero-title {
-  font-size: clamp(1.8rem, 4vw, 3.2rem);
+  font-size: clamp(2.5rem, 6vw, 4.5rem);
   font-weight: 800;
   color: var(--text-white);
   line-height: 1.1;
   margin-bottom: 24px;
-  white-space: nowrap;
   letter-spacing: -1px;
-  text-shadow: 0 2px 30px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
 }
 
 .hero-subtitle {
   font-size: clamp(1rem, 2.5vw, 1.25rem);
   color: var(--text-muted);
-  margin-bottom: 28px;
+  margin-bottom: 40px;
   line-height: 1.7;
   font-weight: 300;
 }
@@ -1111,10 +1084,6 @@ ul {
   /* Hero mobile */
   .hero {
     min-height: 600px;
-  }
-
-  .hero-top {
-    top: 80px;
   }
 
   .hero-ctas {
