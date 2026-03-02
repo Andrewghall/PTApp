@@ -290,11 +290,12 @@ ul {
 }
 
 .hero-title {
-  font-size: clamp(2.5rem, 6vw, 4.5rem);
+  font-size: clamp(1.8rem, 4vw, 3.2rem);
   font-weight: 800;
   color: var(--text-white);
   line-height: 1.1;
   margin-bottom: 24px;
+  white-space: nowrap;
   letter-spacing: -1px;
   text-shadow: 0 2px 30px rgba(0, 0, 0, 0.8);
 }
@@ -1110,6 +1111,10 @@ ul {
   /* Hero mobile */
   .hero {
     min-height: 600px;
+  }
+
+  .hero-top {
+    top: 80px;
   }
 
   .hero-ctas {
