@@ -7,6 +7,7 @@ import {
   Modal,
   SafeAreaView,
   Image,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -15,7 +16,7 @@ const logoBanner = require('../../logo banner.png');
 
 import DashboardScreen from '../screens/DashboardScreen';
 import BookingScreen from '../screens/BookingScreen';
-import MessagingScreen from '../screens/MessagingScreen';
+
 import SessionHistoryScreen from '../screens/SessionHistoryScreen';
 import ReferralsScreen from '../screens/ReferralsScreen';
 import CreditsScreen from '../screens/CreditsScreen';
@@ -35,14 +36,12 @@ interface MainNavigatorProps {
   onLogout: () => void;
   userId: string;
   userRole: 'client' | 'admin';
-  unreadCount: number;
 }
 
 export const MainNavigator: React.FC<MainNavigatorProps> = ({
   onLogout,
   userId,
   userRole,
-  unreadCount,
 }) => {
   const [menuVisible, setMenuVisible] = useState(false);
 
@@ -60,7 +59,6 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({
           {(props) => <DashboardScreen {...props} onLogout={onLogout} userId={userId} />}
         </Stack.Screen>
         <Stack.Screen name="Book" component={BookingScreen} options={{ title: 'Book a Session' }} />
-        <Stack.Screen name="Messages" component={MessagingScreen} options={{ title: 'Messages' }} />
         <Stack.Screen name="History" component={SessionHistoryScreen} options={{ title: 'Session History' }} />
         <Stack.Screen name="Refer" component={ReferralsScreen} options={{ title: 'Refer a Friend' }} />
         <Stack.Screen name="Credits" component={CreditsScreen} />
@@ -116,11 +114,13 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({
                   navigationTarget="Book"
                 />
                 <MenuItem
-                  icon="mail"
-                  label="Messages"
-                  badge={unreadCount > 0 ? unreadCount : undefined}
-                  onPress={() => { setMenuVisible(false); }}
-                  navigationTarget="Messages"
+                  icon="logo-whatsapp"
+                  label="WhatsApp Pedro"
+                  onPress={() => {
+                    setMenuVisible(false);
+                    Linking.openURL('https://wa.me/351926930575?text=Hi%20Pedro%2C%20I%27m%20messaging%20from%20the%20Elevate%20app.');
+                  }}
+                  navigationTarget=""
                 />
                 <MenuItem
                   icon="time"

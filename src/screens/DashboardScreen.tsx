@@ -12,6 +12,7 @@ import {
   Alert,
   Platform,
   BackHandler,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -454,11 +455,11 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             color="#F5A962"
           />
           <QuickActionCard
-            icon="chatbubbles"
-            title="Messages"
-            subtitle="Chat with PT"
-            onPress={() => navigation.navigate('Messages')}
-            color="#10b981"
+            icon="logo-whatsapp"
+            title="WhatsApp"
+            subtitle="Chat with Pedro"
+            onPress={() => Linking.openURL('https://wa.me/351926930575?text=Hi%20Pedro%2C%20I%27m%20messaging%20from%20the%20Elevate%20app.')}
+            color="#25D366"
           />
         </View>
 

@@ -20,7 +20,7 @@ import WorkoutScreen from './src/screens/WorkoutScreen';
 import AnalyticsScreen from './src/screens/AnalyticsScreen';
 import AdminScreen from './src/screens/AdminScreen';
 import CreditsScreen from './src/screens/CreditsScreen';
-import MessagingScreen from './src/screens/MessagingScreen';
+
 import SessionHistoryScreen from './src/screens/SessionHistoryScreen';
 import ReferralsScreen from './src/screens/ReferralsScreen';
 import ProfileScreen from './src/screens/ProfileScreen';
@@ -72,7 +72,6 @@ const linking = {
       Login: 'login',
       DashboardMain: '',
       Book: 'book',
-      Messages: 'messages',
       History: 'history',
       Refer: 'refer',
       Credits: 'credits',
@@ -93,8 +92,6 @@ export default function App() {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<'client' | 'admin'>('client');
-  const [unreadCount, setUnreadCount] = useState(0);
-
   useEffect(() => {
     // Check for existing session
     auth.getSession().then(({ session }) => {
@@ -116,29 +113,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!session) return;
-
-    // Subscribe to new messages for real-time unread count updates
-    const messageSubscription = supabase
-      .channel('messages-unread')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        if (payload.new.recipient_id === session.user.id) {
-          loadUnreadCount(session.user.id);
-        }
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, (payload) => {
-        if (payload.new.recipient_id === session.user.id) {
-          loadUnreadCount(session.user.id);
-        }
-      })
-      .subscribe();
-
-    return () => {
-      messageSubscription.unsubscribe();
-    };
-  }, [session]);
-
   const loadUserRole = async (userId: string) => {
     const { data } = await supabase
       .from('profiles')
@@ -149,13 +123,6 @@ export default function App() {
       setUserRole(data.role);
     }
 
-    // Load unread message count
-    loadUnreadCount(userId);
-  };
-
-  const loadUnreadCount = async (userId: string) => {
-    const { count } = await db.getUnreadCount(userId);
-    setUnreadCount(count || 0);
   };
 
   const handleLogout = async () => {
@@ -185,7 +152,6 @@ export default function App() {
             onLogout={handleLogout}
             userId={session.user.id}
             userRole={userRole}
-            unreadCount={unreadCount}
           />
         )}
       </NavigationContainer>
