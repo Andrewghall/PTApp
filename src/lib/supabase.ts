@@ -209,16 +209,78 @@ export const db = {
     return { data, error: null };
   },
 
-  cancelBooking: async (bookingId: string, slotId: string) => {
+  cancelBooking: async (bookingId: string, slotId: string, clientId?: string) => {
+    // Get booking and slot details to check cancellation window
+    const { data: booking } = await supabase
+      .from('bookings')
+      .select('*, slots!inner(start_time)')
+      .eq('id', bookingId)
+      .single();
+
+    // Get cancellation window setting (default 48 hours)
+    const { data: windowSetting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'cancellation_window_hours')
+      .single();
+
+    const cancellationWindowHours = parseInt(String(windowSetting?.value || '48'));
+    const now = new Date();
+    const sessionStart = booking?.slots?.start_time ? new Date(booking.slots.start_time) : null;
+    const hoursUntilSession = sessionStart ? (sessionStart.getTime() - now.getTime()) / (1000 * 60 * 60) : 999;
+    const withinWindow = hoursUntilSession >= cancellationWindowHours;
+
+    // Cancel the booking
     const { error } = await supabase
       .from('bookings')
-      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
+      .update({ status: 'cancelled', cancelled_at: now.toISOString() })
       .eq('id', bookingId);
-    if (error) return { error };
+    if (error) return { error, credited: false };
+
     // Decrement booked_count
     const { data: slot } = await supabase.from('slots').select('booked_count').eq('id', slotId).single();
     await supabase.from('slots').update({ booked_count: Math.max(0, (slot?.booked_count ?? 1) - 1) }).eq('id', slotId);
-    return { error: null };
+
+    // Credit back session if cancelled within the allowed window
+    let credited = false;
+    const resolvedClientId = clientId || booking?.client_id;
+    if (withinWindow && resolvedClientId) {
+      // Refund the credit
+      const { data: currentBalance } = await supabase
+        .from('credit_balances')
+        .select('balance')
+        .eq('client_id', resolvedClientId)
+        .single();
+
+      await supabase
+        .from('credit_balances')
+        .update({ balance: (currentBalance?.balance || 0) + 1 })
+        .eq('client_id', resolvedClientId);
+
+      // Log the refund transaction
+      await supabase
+        .from('credit_transactions')
+        .insert({
+          client_id: resolvedClientId,
+          type: 'refund',
+          amount: 1,
+          description: `Session cancelled ${Math.round(hoursUntilSession)}h before start - credit refunded`,
+        });
+
+      credited = true;
+    } else if (resolvedClientId) {
+      // Log that credit was forfeited (cancelled too late)
+      await supabase
+        .from('credit_transactions')
+        .insert({
+          client_id: resolvedClientId,
+          type: 'consume',
+          amount: -1,
+          description: `Late cancellation (${Math.round(hoursUntilSession)}h before start) - credit forfeited`,
+        });
+    }
+
+    return { error: null, credited };
   },
 
   getClientBookings: async (clientId: string, status?: string) => {

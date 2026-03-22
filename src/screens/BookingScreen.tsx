@@ -223,7 +223,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await db.cancelBooking(booking.id, slotId);
+                await db.cancelBooking(booking.id, slotId, clientId);
                 // No refund - client loses the session
                 Alert.alert('Cancelled', 'Session cancelled. No refund issued due to late cancellation.');
                 loadUserAndData();
@@ -235,10 +235,10 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
         ]
       );
     } else {
-      // More than 48 hours - full refund
+      // More than cancellation window - credit refunded
       Alert.alert(
         'Cancel Booking',
-        'Are you sure you want to cancel this booking? Your session will be refunded.',
+        'Are you sure you want to cancel this booking? Your session credit will be refunded.',
         [
           { text: 'No', style: 'cancel' },
           {
@@ -246,12 +246,12 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
             style: 'destructive',
             onPress: async () => {
               try {
-                await db.cancelBooking(booking.id, slotId);
-                await db.refundCredit(
-                  clientId,
-                  `Refund for cancelled booking on ${format(parseISO(booking.slots.start_time), 'MMM d')}`
-                );
-                Alert.alert('Success', 'Booking cancelled and session refunded');
+                const result = await db.cancelBooking(booking.id, slotId, clientId);
+                if (result.credited) {
+                  Alert.alert('Success', 'Booking cancelled and session credit refunded.');
+                } else {
+                  Alert.alert('Cancelled', 'Booking cancelled.');
+                }
                 loadUserAndData();
               } catch (error: any) {
                 Alert.alert('Error', error.message || 'Failed to cancel booking');

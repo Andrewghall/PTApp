@@ -13,8 +13,16 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
 
-// Import the logo banner image
 const logoBanner = require('../../logo banner.png');
+
+const GOLD = '#c8a94e';
+const BG_DARK = '#0a0a0a';
+const BG_CARD = '#141414';
+const BG_INPUT = '#1a1a1a';
+const BORDER = '#2a2a2a';
+const TEXT_WHITE = '#ffffff';
+const TEXT_MUTED = '#9ca3af';
+const GREEN = '#10b981';
 
 interface CreditsScreenProps {
   navigation: any;
@@ -38,14 +46,10 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
         const { data: profile } = await db.getClientProfile(session.user.id);
         if (profile) {
           setClientId(profile.id);
-
-          // Load current balance
           const { data: credits } = await db.getCreditBalance(profile.id);
           setCurrentBalance(credits?.balance || 0);
         }
       }
-
-      // Load credit packs
       const { data: packs } = await db.getCreditPacks();
       setCreditPacks(packs || []);
     } catch (error) {
@@ -92,7 +96,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={GOLD} />
       </View>
     );
   }
@@ -108,7 +112,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#1f2937" />
+          <Ionicons name="arrow-back" size={24} color={GOLD} />
           <Text style={styles.backButtonText}>Back</Text>
         </TouchableOpacity>
       </View>
@@ -122,19 +126,30 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
 
         {/* Current Balance */}
         <View style={styles.balanceCard}>
-          <Ionicons name="wallet" size={32} color="#3b82f6" />
+          <Ionicons name="wallet" size={32} color={GOLD} />
           <View style={styles.balanceInfo}>
             <Text style={styles.balanceLabel}>Current Balance</Text>
             <Text style={styles.balanceAmount}>{currentBalance} sessions</Text>
           </View>
         </View>
 
+        {/* Low Credit Warning */}
+        {currentBalance <= 2 && (
+          <View style={styles.lowCreditWarning}>
+            <Ionicons name="warning" size={20} color="#f59e0b" />
+            <Text style={styles.lowCreditText}>
+              {currentBalance === 0
+                ? 'You have no sessions remaining. Buy a pack to book your next session!'
+                : `You're running low on sessions. Top up to keep training!`}
+            </Text>
+          </View>
+        )}
+
         {/* Credit Packs */}
         <View style={styles.packsSection}>
           <Text style={styles.sectionTitle}>Session Packages</Text>
           {creditPacks.map((pack) => {
             const hasDiscount = pack.discount_percent > 0;
-            // Database stores prices in cents (2500 = €25.00), convert to euros
             const displayPrice = Math.round(Number(pack.price) / 100);
             const pricePerCredit = Math.round(displayPrice / pack.credits);
             const savings = hasDiscount
@@ -156,18 +171,18 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
                   <View style={styles.packInfo}>
                     <Text style={styles.packCredits}>{pack.credits} Sessions</Text>
                     <Text style={styles.packDescription}>
-                      €{pricePerCredit} per session
+                      {'\u20AC'}{pricePerCredit} per session
                     </Text>
                     {hasDiscount && (
-                      <Text style={styles.savingsText}>Save €{savings}!</Text>
+                      <Text style={styles.savingsText}>Save {'\u20AC'}{savings}!</Text>
                     )}
                   </View>
 
                   <View style={styles.packPricing}>
-                    <Text style={styles.packPrice}>€{displayPrice}</Text>
+                    <Text style={styles.packPrice}>{'\u20AC'}{displayPrice}</Text>
                     {hasDiscount && (
                       <Text style={styles.originalPrice}>
-                        €{(pack.credits * 25)}
+                        {'\u20AC'}{(pack.credits * 25)}
                       </Text>
                     )}
                   </View>
@@ -183,7 +198,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
                   disabled={purchasing}
                 >
                   {purchasing ? (
-                    <ActivityIndicator color="white" />
+                    <ActivityIndicator color={BG_DARK} />
                   ) : (
                     <Text style={styles.buyButtonText}>Buy Now</Text>
                   )}
@@ -196,20 +211,20 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
         {/* Info Section */}
         <View style={styles.infoSection}>
           <View style={styles.infoCard}>
-            <Ionicons name="information-circle" size={24} color="#3b82f6" />
+            <Ionicons name="information-circle" size={24} color={GOLD} />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>How It Works</Text>
               <Text style={styles.infoText}>
-                • 1 session = €25{'\n'}
-                • Sessions never expire{'\n'}
-                • Book anytime{'\n'}
-                • Cancel within the cancellation window for full refund
+                {'\u2022'} 1 session = {'\u20AC'}25{'\n'}
+                {'\u2022'} Sessions never expire{'\n'}
+                {'\u2022'} Book anytime{'\n'}
+                {'\u2022'} Cancel within the cancellation window for a credit back
               </Text>
             </View>
           </View>
 
           <View style={styles.infoCard}>
-            <Ionicons name="shield-checkmark" size={24} color="#10b981" />
+            <Ionicons name="shield-checkmark" size={24} color={GREEN} />
             <View style={styles.infoContent}>
               <Text style={styles.infoTitle}>Secure Payment</Text>
               <Text style={styles.infoText}>
@@ -227,22 +242,22 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: BG_DARK,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
+    backgroundColor: BG_DARK,
   },
   heroBanner: {
     width: '100%',
     height: 160,
   },
   backButtonContainer: {
-    backgroundColor: 'white',
+    backgroundColor: BG_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: BORDER,
   },
   backButton: {
     flexDirection: 'row',
@@ -252,7 +267,7 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#1f2937',
+    color: GOLD,
     marginLeft: 8,
     fontWeight: '500',
   },
@@ -261,41 +276,58 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    backgroundColor: 'white',
+    backgroundColor: BG_CARD,
   },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: TEXT_WHITE,
   },
   headerSubtitle: {
     fontSize: 16,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     marginTop: 4,
   },
   balanceCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#1a1710',
     marginHorizontal: 20,
     marginTop: 20,
     padding: 20,
     borderRadius: 16,
     borderWidth: 2,
-    borderColor: '#3b82f6',
+    borderColor: GOLD,
   },
   balanceInfo: {
     marginLeft: 16,
   },
   balanceLabel: {
     fontSize: 14,
-    color: '#1f2937',
+    color: TEXT_MUTED,
     fontWeight: '500',
   },
   balanceAmount: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#3b82f6',
+    color: GOLD,
+  },
+  lowCreditWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#1a1500',
+    marginHorizontal: 20,
+    marginTop: 12,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#f59e0b44',
+  },
+  lowCreditText: {
+    fontSize: 14,
+    color: '#f59e0b',
+    marginLeft: 10,
+    flex: 1,
   },
   packsSection: {
     padding: 20,
@@ -303,31 +335,26 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: TEXT_WHITE,
     marginBottom: 16,
   },
   packCard: {
-    backgroundColor: 'white',
+    backgroundColor: BG_CARD,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 2,
-    borderColor: 'transparent',
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   packCardFeatured: {
-    borderColor: '#10b981',
-    backgroundColor: '#f0fdf4',
+    borderColor: GREEN,
+    backgroundColor: '#0a1a10',
   },
   discountBadge: {
     position: 'absolute',
     top: -12,
     right: 20,
-    backgroundColor: '#10b981',
+    backgroundColor: GREEN,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 12,
@@ -350,16 +377,16 @@ const styles = StyleSheet.create({
   packCredits: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: TEXT_WHITE,
   },
   packDescription: {
     fontSize: 14,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     marginTop: 4,
   },
   savingsText: {
     fontSize: 14,
-    color: '#10b981',
+    color: GREEN,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -369,45 +396,42 @@ const styles = StyleSheet.create({
   packPrice: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#3b82f6',
+    color: GOLD,
   },
   originalPrice: {
     fontSize: 14,
-    color: '#9ca3af',
+    color: TEXT_MUTED,
     textDecorationLine: 'line-through',
     marginTop: 2,
   },
   buyButton: {
-    backgroundColor: '#3b82f6',
+    backgroundColor: GOLD,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
   },
   buyButtonFeatured: {
-    backgroundColor: '#10b981',
+    backgroundColor: GREEN,
   },
   buyButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: '#555',
   },
   buyButtonText: {
-    color: 'white',
+    color: BG_DARK,
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   infoSection: {
     padding: 20,
   },
   infoCard: {
     flexDirection: 'row',
-    backgroundColor: 'white',
+    backgroundColor: BG_CARD,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: BORDER,
   },
   infoContent: {
     marginLeft: 12,
@@ -416,12 +440,12 @@ const styles = StyleSheet.create({
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: TEXT_WHITE,
     marginBottom: 4,
   },
   infoText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: TEXT_MUTED,
     lineHeight: 20,
   },
 });
