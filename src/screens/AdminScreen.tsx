@@ -48,6 +48,18 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [editPackForm, setEditPackForm] = useState({ credits: '', price: '', discount: '' });
 
+  // Add Client state
+  const [showAddClientModal, setShowAddClientModal] = useState(false);
+  const [addingClient, setAddingClient] = useState(false);
+  const [newClient, setNewClient] = useState({
+    email: '',
+    firstName: '',
+    lastName: '',
+    phone: '',
+    dateOfBirth: '',
+    gender: '',
+  });
+
   // Slot management state
   const [showSlotModal, setShowSlotModal] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
@@ -404,6 +416,41 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     );
   };
 
+  const handleAddClient = async () => {
+    if (!newClient.email || !newClient.firstName || !newClient.lastName) {
+      Alert.alert('Missing Fields', 'Email, first name and last name are required');
+      return;
+    }
+
+    setAddingClient(true);
+    try {
+      const { data, error } = await db.adminCreateClient({
+        email: newClient.email.trim().toLowerCase(),
+        firstName: newClient.firstName.trim(),
+        lastName: newClient.lastName.trim(),
+        phone: newClient.phone.trim(),
+        dateOfBirth: newClient.dateOfBirth.trim(),
+        gender: newClient.gender,
+      });
+
+      if (error) throw new Error(error.message || 'Failed to create client');
+
+      const message = data?.emailSent
+        ? `Account created for ${newClient.firstName}! A welcome email has been sent to ${newClient.email} with their login details.`
+        : `Account created for ${newClient.firstName}!\n\nTemporary password: ${data?.tempPassword}\n\nPlease share this with the client securely. They will be prompted to change it on first login.`;
+
+      Alert.alert('Client Created', message);
+
+      setShowAddClientModal(false);
+      setNewClient({ email: '', firstName: '', lastName: '', phone: '', dateOfBirth: '', gender: '' });
+      await loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create client');
+    } finally {
+      setAddingClient(false);
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -643,7 +690,16 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         {/* Clients Tab */}
         {activeTab === 'clients' && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>All Clients ({clients.length})</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={styles.sectionTitle}>All Clients ({clients.length})</Text>
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => setShowAddClientModal(true)}
+              >
+                <Ionicons name="person-add" size={18} color="white" />
+                <Text style={styles.primaryButtonText}>Add Client</Text>
+              </TouchableOpacity>
+            </View>
             {clients.map((client) => (
               <View key={client.id} style={styles.clientCard}>
                 <View style={styles.clientInfo}>
@@ -814,6 +870,100 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
           </View>
         )}
       </ScrollView>
+
+      {/* Add Client Modal */}
+      <Modal visible={showAddClientModal} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add New Client</Text>
+              <TouchableOpacity onPress={() => setShowAddClientModal(false)}>
+                <Ionicons name="close" size={24} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalLabel}>Email *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="client@email.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={newClient.email}
+              onChangeText={(text) => setNewClient({ ...newClient, email: text })}
+            />
+
+            <Text style={styles.modalLabel}>First Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="First name"
+              value={newClient.firstName}
+              onChangeText={(text) => setNewClient({ ...newClient, firstName: text })}
+            />
+
+            <Text style={styles.modalLabel}>Last Name *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Last name"
+              value={newClient.lastName}
+              onChangeText={(text) => setNewClient({ ...newClient, lastName: text })}
+            />
+
+            <Text style={styles.modalLabel}>Phone</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="+351 ..."
+              keyboardType="phone-pad"
+              value={newClient.phone}
+              onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
+            />
+
+            <Text style={styles.modalLabel}>Date of Birth</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="YYYY-MM-DD"
+              value={newClient.dateOfBirth}
+              onChangeText={(text) => setNewClient({ ...newClient, dateOfBirth: text })}
+            />
+
+            <Text style={styles.modalLabel}>Gender</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              {['male', 'female', 'other'].map((g) => (
+                <TouchableOpacity
+                  key={g}
+                  style={[
+                    styles.genderButton,
+                    newClient.gender === g && styles.genderButtonActive,
+                  ]}
+                  onPress={() => setNewClient({ ...newClient, gender: g })}
+                >
+                  <Text style={[
+                    styles.genderButtonText,
+                    newClient.gender === g && styles.genderButtonTextActive,
+                  ]}>
+                    {g.charAt(0).toUpperCase() + g.slice(1)}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
+              A welcome email with login details will be sent to the client. They will be prompted to change their password on first login.
+            </Text>
+
+            <TouchableOpacity
+              style={[styles.modalCreateButton, addingClient && styles.buyButtonDisabled]}
+              onPress={handleAddClient}
+              disabled={addingClient}
+            >
+              {addingClient ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.modalCreateButtonText}>Create Client Account</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {/* Adjust Credits Modal */}
       <Modal visible={showAdjustCreditsModal} animationType="slide" transparent={true}>
@@ -1743,6 +1893,34 @@ const styles = StyleSheet.create({
   },
   buyButtonDisabled: {
     backgroundColor: '#9ca3af',
+  },
+  genderButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    backgroundColor: 'white',
+  },
+  genderButtonActive: {
+    borderColor: '#3b82f6',
+    backgroundColor: '#eff6ff',
+  },
+  genderButtonText: {
+    fontSize: 14,
+    color: '#6b7280',
+  },
+  genderButtonTextActive: {
+    color: '#3b82f6',
+    fontWeight: '600',
+  },
+  modalLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: 6,
+    marginTop: 8,
   },
 });
 

@@ -1144,6 +1144,21 @@ export const db = {
     return { data, error };
   },
 
+  // ── ADMIN: Create Client ──
+  adminCreateClient: async (clientData: {
+    email: string;
+    firstName: string;
+    lastName: string;
+    phone?: string;
+    dateOfBirth?: string;
+    gender?: string;
+  }) => {
+    const { data, error } = await supabase.functions.invoke('admin-create-client', {
+      body: clientData,
+    });
+    return { data, error };
+  },
+
   // ── TODAY'S ATTENDANCE (Admin) ──
   getTodayBookings: async () => {
     const today = new Date();
