@@ -10,15 +10,25 @@ import {
   Modal,
   ActivityIndicator,
   Alert,
-  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, db, auth } from '../lib/supabase';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
-// Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+// Brand colors
+const COLORS = {
+  BG_DARK: '#0a0a0a',
+  BG_CARD: '#141414',
+  GOLD: '#c8a94e',
+  GOLD_DIM: '#a8893e',
+  BORDER: '#2a2a2a',
+  TEXT_WHITE: '#ffffff',
+  TEXT_MUTED: '#9ca3af',
+  GREEN: '#10b981',
+  RED: '#ef4444',
+  OVERLAY: 'rgba(0, 0, 0, 0.8)',
+};
 
 interface AdminScreenProps {
   navigation: any;
@@ -454,7 +464,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
+        <ActivityIndicator size="large" color={COLORS.GOLD} />
       </View>
     );
   }
@@ -473,10 +483,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hero Banner */}
-      <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
-
-      {/* Header */}
+      {/* Header - clean, no banner */}
       <View style={styles.headerContainer}>
         <HamburgerButton onPress={() => setMenuVisible(true)} />
         <View style={styles.headerTextContainer}>
@@ -484,53 +491,53 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         </View>
       </View>
 
-      {/* Tab Bar - Mobile Friendly */}
+      {/* Tab Bar - Compact, sticky */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
           onPress={() => setActiveTab('overview')}
         >
-          <Ionicons name="stats-chart" size={20} color={activeTab === 'overview' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="stats-chart" size={16} color={activeTab === 'overview' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>Overview</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
           onPress={() => setActiveTab('schedule')}
         >
-          <Ionicons name="calendar" size={20} color={activeTab === 'schedule' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="calendar" size={16} color={activeTab === 'schedule' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'schedule' && styles.tabTextActive]}>Schedule</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'clients' && styles.tabActive]}
           onPress={() => setActiveTab('clients')}
         >
-          <Ionicons name="people" size={20} color={activeTab === 'clients' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="people" size={16} color={activeTab === 'clients' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'clients' && styles.tabTextActive]}>Clients</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'packs' && styles.tabActive]}
           onPress={() => setActiveTab('packs')}
         >
-          <Ionicons name="pricetag" size={20} color={activeTab === 'packs' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="pricetag" size={16} color={activeTab === 'packs' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'packs' && styles.tabTextActive]}>Pricing</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'attendance' && styles.tabActive]}
           onPress={() => setActiveTab('attendance')}
         >
-          <Ionicons name="checkmark-circle" size={20} color={activeTab === 'attendance' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="checkmark-circle" size={16} color={activeTab === 'attendance' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'attendance' && styles.tabTextActive]}>Attendance</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.tab, activeTab === 'settings' && styles.tabActive]}
           onPress={() => setActiveTab('settings')}
         >
-          <Ionicons name="cog" size={20} color={activeTab === 'settings' ? '#3b82f6' : '#6b7280'} />
+          <Ionicons name="cog" size={16} color={activeTab === 'settings' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
           <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>Settings</Text>
         </TouchableOpacity>
       </ScrollView>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Overview Tab */}
         {activeTab === 'overview' && (
           <>
@@ -544,8 +551,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                   <View style={styles.kpiGrid}>
                     {/* Total Clients */}
                     <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: '#eff6ff' }]}>
-                        <Ionicons name="people" size={28} color="#3b82f6" />
+                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(200, 169, 78, 0.15)' }]}>
+                        <Ionicons name="people" size={28} color={COLORS.GOLD} />
                       </View>
                       <Text style={styles.kpiValue}>{businessMetrics.totalClients || 0}</Text>
                       <Text style={styles.kpiLabel}>Total Clients</Text>
@@ -553,17 +560,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 
                     {/* Monthly Revenue */}
                     <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: '#ecfdf5' }]}>
-                        <Ionicons name="wallet" size={28} color="#10b981" />
+                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
+                        <Ionicons name="wallet" size={28} color={COLORS.GREEN} />
                       </View>
-                      <Text style={styles.kpiValue}>€{businessMetrics.monthlyRevenue || 0}</Text>
+                      <Text style={styles.kpiValue}>{'\u20AC'}{businessMetrics.monthlyRevenue || 0}</Text>
                       <Text style={styles.kpiLabel}>Monthly Revenue</Text>
                     </View>
 
                     {/* Attendance Rate */}
                     <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: '#fef3c7' }]}>
-                        <Ionicons name="checkmark-circle" size={28} color="#f59e0b" />
+                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(200, 169, 78, 0.15)' }]}>
+                        <Ionicons name="checkmark-circle" size={28} color={COLORS.GOLD} />
                       </View>
                       <Text style={styles.kpiValue}>{businessMetrics.attendanceRate || 0}%</Text>
                       <Text style={styles.kpiLabel}>Attendance Rate</Text>
@@ -576,29 +583,29 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                     style={styles.blockBookingsButton}
                     onPress={() => navigation.navigate('BlockBookings')}
                   >
-                    <Ionicons name="repeat" size={24} color="white" />
+                    <Ionicons name="repeat" size={24} color={COLORS.BG_DARK} />
                     <Text style={styles.blockBookingsButtonText}>Manage Block Bookings</Text>
-                    <Ionicons name="chevron-forward" size={20} color="white" />
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
                   </TouchableOpacity>
 
                   {/* Programme Assignments Button */}
                   <TouchableOpacity
-                    style={[styles.blockBookingsButton, { backgroundColor: '#8b5cf6' }]}
+                    style={[styles.blockBookingsButton, { backgroundColor: COLORS.GOLD_DIM }]}
                     onPress={() => navigation.navigate('ProgrammeAssignments')}
                   >
-                    <Ionicons name="fitness" size={24} color="white" />
+                    <Ionicons name="fitness" size={24} color={COLORS.BG_DARK} />
                     <Text style={styles.blockBookingsButtonText}>Programme Assignments</Text>
-                    <Ionicons name="chevron-forward" size={20} color="white" />
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
                   </TouchableOpacity>
 
                   {/* Client Messages Button */}
                   <TouchableOpacity
-                    style={[styles.blockBookingsButton, { backgroundColor: '#10b981' }]}
+                    style={[styles.blockBookingsButton, { backgroundColor: COLORS.GREEN }]}
                     onPress={() => navigation.navigate('Messages')}
                   >
-                    <Ionicons name="chatbubbles" size={24} color="white" />
+                    <Ionicons name="chatbubbles" size={24} color={COLORS.BG_DARK} />
                     <Text style={styles.blockBookingsButtonText}>Client Messages</Text>
-                    <Ionicons name="chevron-forward" size={20} color="white" />
+                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
                   </TouchableOpacity>
 
                   {/* Quick Stats */}
@@ -606,19 +613,19 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                     <Text style={styles.quickStatsTitle}>Quick Stats</Text>
 
                     <View style={styles.quickStatRow}>
-                      <Ionicons name="calendar-outline" size={20} color="#6b7280" />
+                      <Ionicons name="calendar-outline" size={20} color={COLORS.TEXT_MUTED} />
                       <Text style={styles.quickStatLabel}>Upcoming Sessions</Text>
                       <Text style={styles.quickStatValue}>{slots.length}</Text>
                     </View>
 
                     <View style={styles.quickStatRow}>
-                      <Ionicons name="person-outline" size={20} color="#6b7280" />
+                      <Ionicons name="person-outline" size={20} color={COLORS.TEXT_MUTED} />
                       <Text style={styles.quickStatLabel}>Active Clients</Text>
                       <Text style={styles.quickStatValue}>{clients.length}</Text>
                     </View>
 
                     <View style={styles.quickStatRow}>
-                      <Ionicons name="trending-up-outline" size={20} color="#6b7280" />
+                      <Ionicons name="trending-up-outline" size={20} color={COLORS.TEXT_MUTED} />
                       <Text style={styles.quickStatLabel}>Session Capacity</Text>
                       <Text style={styles.quickStatValue}>
                         {slots.reduce((sum, s) => sum + s.booked_count, 0)}/
@@ -630,7 +637,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 </>
               ) : (
                 <View style={styles.emptyMetrics}>
-                  <ActivityIndicator size="large" color="#3b82f6" />
+                  <ActivityIndicator size="large" color={COLORS.GOLD} />
                   <Text style={styles.emptyMetricsText}>Loading metrics...</Text>
                 </View>
               )}
@@ -643,7 +650,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
           <>
             <View style={styles.actionBar}>
               <TouchableOpacity style={styles.primaryButton} onPress={createWeeklySlots}>
-                <Ionicons name="add-circle" size={20} color="white" />
+                <Ionicons name="add-circle" size={20} color={COLORS.BG_DARK} />
                 <Text style={styles.primaryButtonText}>Create Weekly Slots</Text>
               </TouchableOpacity>
             </View>
@@ -696,7 +703,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 style={styles.primaryButton}
                 onPress={() => setShowAddClientModal(true)}
               >
-                <Ionicons name="person-add" size={18} color="white" />
+                <Ionicons name="person-add" size={18} color={COLORS.BG_DARK} />
                 <Text style={styles.primaryButtonText}>Add Client</Text>
               </TouchableOpacity>
             </View>
@@ -708,13 +715,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                   </Text>
                   <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
                   <View style={styles.clientCredits}>
-                    <Ionicons name="wallet" size={16} color={(client.credit_balances?.balance || 0) <= 2 ? "#ef4444" : "#3b82f6"} />
+                    <Ionicons name="wallet" size={16} color={(client.credit_balances?.balance || 0) <= 2 ? COLORS.RED : COLORS.GOLD} />
                     <Text style={[
                       styles.clientCreditsText,
-                      (client.credit_balances?.balance || 0) <= 2 && { color: "#ef4444", fontWeight: "600" }
+                      (client.credit_balances?.balance || 0) <= 2 && { color: COLORS.RED, fontWeight: "600" }
                     ]}>
                       {client.credit_balances?.balance || 0} credits
-                      {(client.credit_balances?.balance || 0) <= 2 && " ⚠️"}
+                      {(client.credit_balances?.balance || 0) <= 2 && " !!!"}
                     </Text>
                   </View>
                 </View>
@@ -749,13 +756,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <View key={pack.id} style={styles.packCard}>
                 <View style={styles.packInfo}>
                   <Text style={styles.packCredits}>{pack.credits} Credits</Text>
-                  <Text style={styles.packPrice}>€{Math.round(pack.price / 100)}</Text>
+                  <Text style={styles.packPrice}>{'\u20AC'}{Math.round(pack.price / 100)}</Text>
                   {pack.discount_percent > 0 && (
                     <Text style={styles.packDiscount}>{pack.discount_percent}% off</Text>
                   )}
                 </View>
                 <View style={styles.packActions}>
-                  <Text style={styles.packPerCredit}>€25/session</Text>
+                  <Text style={styles.packPerCredit}>{'\u20AC'}25/session</Text>
                   <TouchableOpacity
                     style={styles.editPackButton}
                     onPress={() => handleEditPack(pack)}
@@ -770,7 +777,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               style={styles.addPackButton}
               onPress={() => setShowAddPackModal(true)}
             >
-              <Ionicons name="add-circle-outline" size={20} color="#3b82f6" />
+              <Ionicons name="add-circle-outline" size={20} color={COLORS.GOLD} />
               <Text style={styles.addPackText}>Add New Pack</Text>
             </TouchableOpacity>
           </View>
@@ -786,7 +793,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 
             {todayBookings.length === 0 ? (
               <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color="#9ca3af" />
+                <Ionicons name="calendar-outline" size={48} color={COLORS.TEXT_MUTED} />
                 <Text style={styles.emptyStateText}>No sessions scheduled for today</Text>
               </View>
             ) : (
@@ -836,6 +843,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 2"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
                 value={settingsForm.lowCreditThreshold}
                 onChangeText={(text) => setSettingsForm({ ...settingsForm, lowCreditThreshold: text })}
@@ -850,6 +858,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 48"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
                 value={settingsForm.cancellationWindowHours}
                 onChangeText={(text) => setSettingsForm({ ...settingsForm, cancellationWindowHours: text })}
@@ -862,7 +871,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               disabled={savingSettings}
             >
               {savingSettings ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={COLORS.BG_DARK} />
               ) : (
                 <Text style={styles.modalCreateButtonText}>Save Settings</Text>
               )}
@@ -878,85 +887,92 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add New Client</Text>
               <TouchableOpacity onPress={() => setShowAddClientModal(false)}>
-                <Ionicons name="close" size={24} color="#6b7280" />
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalLabel}>Email *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="client@email.com"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              value={newClient.email}
-              onChangeText={(text) => setNewClient({ ...newClient, email: text })}
-            />
+            <ScrollView style={styles.modalBody}>
+              <Text style={styles.modalLabel}>Email *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="client@email.com"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={newClient.email}
+                onChangeText={(text) => setNewClient({ ...newClient, email: text })}
+              />
 
-            <Text style={styles.modalLabel}>First Name *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="First name"
-              value={newClient.firstName}
-              onChangeText={(text) => setNewClient({ ...newClient, firstName: text })}
-            />
+              <Text style={styles.modalLabel}>First Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="First name"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                value={newClient.firstName}
+                onChangeText={(text) => setNewClient({ ...newClient, firstName: text })}
+              />
 
-            <Text style={styles.modalLabel}>Last Name *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Last name"
-              value={newClient.lastName}
-              onChangeText={(text) => setNewClient({ ...newClient, lastName: text })}
-            />
+              <Text style={styles.modalLabel}>Last Name *</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Last name"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                value={newClient.lastName}
+                onChangeText={(text) => setNewClient({ ...newClient, lastName: text })}
+              />
 
-            <Text style={styles.modalLabel}>Phone</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="+351 ..."
-              keyboardType="phone-pad"
-              value={newClient.phone}
-              onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
-            />
+              <Text style={styles.modalLabel}>Phone</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="+351 ..."
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                keyboardType="phone-pad"
+                value={newClient.phone}
+                onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
+              />
 
-            <Text style={styles.modalLabel}>Date of Birth</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="YYYY-MM-DD"
-              value={newClient.dateOfBirth}
-              onChangeText={(text) => setNewClient({ ...newClient, dateOfBirth: text })}
-            />
+              <Text style={styles.modalLabel}>Date of Birth</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="YYYY-MM-DD"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                value={newClient.dateOfBirth}
+                onChangeText={(text) => setNewClient({ ...newClient, dateOfBirth: text })}
+              />
 
-            <Text style={styles.modalLabel}>Gender</Text>
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
-              {['male', 'female', 'other'].map((g) => (
-                <TouchableOpacity
-                  key={g}
-                  style={[
-                    styles.genderButton,
-                    newClient.gender === g && styles.genderButtonActive,
-                  ]}
-                  onPress={() => setNewClient({ ...newClient, gender: g })}
-                >
-                  <Text style={[
-                    styles.genderButtonText,
-                    newClient.gender === g && styles.genderButtonTextActive,
-                  ]}>
-                    {g.charAt(0).toUpperCase() + g.slice(1)}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+              <Text style={styles.modalLabel}>Gender</Text>
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+                {['male', 'female', 'other'].map((g) => (
+                  <TouchableOpacity
+                    key={g}
+                    style={[
+                      styles.genderButton,
+                      newClient.gender === g && styles.genderButtonActive,
+                    ]}
+                    onPress={() => setNewClient({ ...newClient, gender: g })}
+                  >
+                    <Text style={[
+                      styles.genderButtonText,
+                      newClient.gender === g && styles.genderButtonTextActive,
+                    ]}>
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
 
-            <Text style={{ fontSize: 12, color: '#6b7280', marginBottom: 16 }}>
-              A welcome email with login details will be sent to the client. They will be prompted to change their password on first login.
-            </Text>
+              <Text style={{ fontSize: 12, color: COLORS.TEXT_MUTED, marginBottom: 16 }}>
+                A welcome email with login details will be sent to the client. They will be prompted to change their password on first login.
+              </Text>
+            </ScrollView>
 
             <TouchableOpacity
-              style={[styles.modalCreateButton, addingClient && styles.buyButtonDisabled]}
+              style={[styles.modalCreateButton, { margin: 20 }, addingClient && styles.buyButtonDisabled]}
               onPress={handleAddClient}
               disabled={addingClient}
             >
               {addingClient ? (
-                <ActivityIndicator color="white" />
+                <ActivityIndicator color={COLORS.BG_DARK} />
               ) : (
                 <Text style={styles.modalCreateButtonText}>Create Client Account</Text>
               )}
@@ -972,7 +988,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Adjust Credits</Text>
               <TouchableOpacity onPress={() => setShowAdjustCreditsModal(false)}>
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Text style={styles.closeButtonText}>{'\u2715'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -993,6 +1009,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 10 or -5"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
                 value={adjustCreditsAmount}
                 onChangeText={setAdjustCreditsAmount}
@@ -1024,7 +1041,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
-                <Ionicons name="close" size={28} color="#6b7280" />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_MUTED} />
               </TouchableOpacity>
             </View>
 
@@ -1033,15 +1050,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 10"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={newPack.credits}
                 onChangeText={(text) => setNewPack({...newPack, credits: text})}
               />
 
-              <Text style={styles.inputLabel}>Price (€) *</Text>
+              <Text style={styles.inputLabel}>Price ({'\u20AC'}) *</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 50.00"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="decimal-pad"
                 value={newPack.price}
                 onChangeText={(text) => setNewPack({...newPack, price: text})}
@@ -1051,6 +1070,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 10"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={newPack.discount}
                 onChangeText={(text) => setNewPack({...newPack, discount: text})}
@@ -1070,7 +1090,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 disabled={creating}
               >
                 {creating ? (
-                  <ActivityIndicator color="white" />
+                  <ActivityIndicator color={COLORS.BG_DARK} />
                 ) : (
                   <Text style={styles.modalCreateButtonText}>Create Pack</Text>
                 )}
@@ -1087,7 +1107,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowEditPackModal(false)}>
-                <Text style={styles.closeButtonText}>✕</Text>
+                <Text style={styles.closeButtonText}>{'\u2715'}</Text>
               </TouchableOpacity>
             </View>
 
@@ -1096,15 +1116,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 10"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={editPackForm.credits}
                 onChangeText={(text) => setEditPackForm({...editPackForm, credits: text})}
               />
 
-              <Text style={styles.inputLabel}>Price (€) *</Text>
+              <Text style={styles.inputLabel}>Price ({'\u20AC'}) *</Text>
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 50"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="decimal-pad"
                 value={editPackForm.price}
                 onChangeText={(text) => setEditPackForm({...editPackForm, price: text})}
@@ -1114,6 +1136,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <TextInput
                 style={styles.modalInput}
                 placeholder="e.g., 10"
+                placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={editPackForm.discount}
                 onChangeText={(text) => setEditPackForm({...editPackForm, discount: text})}
@@ -1133,7 +1156,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 disabled={creating}
               >
                 {creating ? (
-                  <ActivityIndicator color="white" />
+                  <ActivityIndicator color={COLORS.BG_DARK} />
                 ) : (
                   <Text style={styles.modalCreateButtonText}>Update Pack</Text>
                 )}
@@ -1147,40 +1170,50 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       <Modal visible={showSlotModal} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Slot</Text>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Edit Slot</Text>
+              <TouchableOpacity onPress={() => { setShowSlotModal(false); setSelectedSlot(null); }}>
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+              </TouchableOpacity>
+            </View>
 
-            <Text style={styles.inputLabel}>Start Time</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={slotForm.startTime}
-              onChangeText={(text) => setSlotForm({ ...slotForm, startTime: text })}
-              placeholder="YYYY-MM-DD HH:MM"
-            />
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>Start Time</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={slotForm.startTime}
+                onChangeText={(text) => setSlotForm({ ...slotForm, startTime: text })}
+                placeholder="YYYY-MM-DD HH:MM"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+              />
 
-            <Text style={styles.inputLabel}>End Time</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={slotForm.endTime}
-              onChangeText={(text) => setSlotForm({ ...slotForm, endTime: text })}
-              placeholder="YYYY-MM-DD HH:MM"
-            />
+              <Text style={styles.inputLabel}>End Time</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={slotForm.endTime}
+                onChangeText={(text) => setSlotForm({ ...slotForm, endTime: text })}
+                placeholder="YYYY-MM-DD HH:MM"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+              />
 
-            <Text style={styles.inputLabel}>Capacity</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={slotForm.capacity}
-              onChangeText={(text) => setSlotForm({ ...slotForm, capacity: text })}
-              placeholder="6"
-              keyboardType="number-pad"
-            />
+              <Text style={styles.inputLabel}>Capacity</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={slotForm.capacity}
+                onChangeText={(text) => setSlotForm({ ...slotForm, capacity: text })}
+                placeholder="6"
+                placeholderTextColor={COLORS.TEXT_MUTED}
+                keyboardType="number-pad"
+              />
 
-            {selectedSlot && selectedSlot.booked_count > 0 && (
-              <Text style={styles.warningText}>
-                ⚠️ This slot has {selectedSlot.booked_count} booking(s). Clients will be notified of changes.
-              </Text>
-            )}
+              {selectedSlot && selectedSlot.booked_count > 0 && (
+                <Text style={styles.warningText}>
+                  This slot has {selectedSlot.booked_count} booking(s). Clients will be notified of changes.
+                </Text>
+              )}
+            </View>
 
-            <View style={styles.modalButtonGroup}>
+            <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={() => {
@@ -1219,54 +1252,51 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: COLORS.BG_DARK,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-  },
-  heroBanner: {
-    width: '100%',
-    height: 160,
+    backgroundColor: COLORS.BG_DARK,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 16,
-    backgroundColor: 'white',
+    paddingVertical: 12,
+    backgroundColor: COLORS.BG_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: COLORS.BORDER,
   },
   tabBar: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    paddingHorizontal: 12,
+    borderBottomColor: COLORS.BORDER,
+    paddingHorizontal: 8,
+    flexGrow: 0,
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginRight: 8,
-    borderBottomWidth: 3,
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginRight: 4,
+    borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   tabActive: {
-    borderBottomColor: '#3b82f6',
+    borderBottomColor: COLORS.GOLD,
   },
   tabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
   },
   tabTextActive: {
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '600',
   },
   hamburgerIcon: {
@@ -1277,7 +1307,7 @@ const styles = StyleSheet.create({
   hamburgerLine: {
     width: 24,
     height: 3,
-    backgroundColor: '#1f2937',
+    backgroundColor: COLORS.TEXT_WHITE,
     borderRadius: 2,
   },
   headerTextContainer: {
@@ -1287,22 +1317,17 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   headerSubtitle: {
     fontSize: 13,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginTop: 2,
   },
   dropdownMenu: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_CARD,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderBottomColor: COLORS.BORDER,
   },
   menuItem: {
     flexDirection: 'row',
@@ -1311,39 +1336,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     gap: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: COLORS.BORDER,
   },
   menuItemActive: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
   },
   menuItemText: {
     fontSize: 16,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     fontWeight: '500',
   },
   menuItemTextActive: {
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '600',
   },
   scrollView: {
     flex: 1,
     paddingTop: 16,
   },
+  scrollContent: {
+    maxWidth: 900,
+    width: '100%',
+    alignSelf: 'center',
+  },
   actionBar: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_CARD,
     borderRadius: 12,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   primaryButton: {
     flexDirection: 'row',
-    backgroundColor: '#3b82f6',
+    backgroundColor: COLORS.GOLD,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -1351,7 +1378,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   primaryButtonText: {
-    color: 'white',
+    color: COLORS.BG_DARK,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1359,19 +1386,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#8b5cf6',
+    backgroundColor: COLORS.GOLD,
     borderRadius: 12,
     padding: 16,
     marginTop: 12,
     gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   blockBookingsButtonText: {
-    color: 'white',
+    color: COLORS.BG_DARK,
     fontSize: 16,
     fontWeight: '600',
     flex: 1,
@@ -1379,39 +1401,33 @@ const styles = StyleSheet.create({
   section: {
     marginHorizontal: 16,
     marginBottom: 16,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_CARD,
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginBottom: 16,
   },
   slotCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   slotInfo: {
     flex: 1,
@@ -1419,11 +1435,11 @@ const styles = StyleSheet.create({
   slotDate: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   slotTime: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginTop: 2,
   },
   slotStats: {
@@ -1433,11 +1449,11 @@ const styles = StyleSheet.create({
   slotBooked: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#3b82f6',
+    color: COLORS.GOLD,
   },
   slotLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: COLORS.TEXT_MUTED,
   },
   slotActions: {
     flexDirection: 'row',
@@ -1446,47 +1462,44 @@ const styles = StyleSheet.create({
   slotActionButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: COLORS.BG_CARD,
   },
   slotActionButtonEdit: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: COLORS.GOLD,
   },
   slotActionButtonEditText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: COLORS.GOLD,
   },
   slotActionButtonDelete: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#fef2f2',
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
     borderWidth: 1,
-    borderColor: '#ef4444',
+    borderColor: COLORS.RED,
   },
   slotActionButtonDeleteText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#ef4444',
+    color: COLORS.RED,
   },
   clientCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   clientInfo: {
     flex: 1,
@@ -1494,11 +1507,11 @@ const styles = StyleSheet.create({
   clientName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   clientEmail: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginTop: 2,
   },
   clientCredits: {
@@ -1509,7 +1522,7 @@ const styles = StyleSheet.create({
   },
   clientCreditsText: {
     fontSize: 14,
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '500',
   },
   clientActions: {
@@ -1517,44 +1530,41 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   viewDetailsButton: {
-    backgroundColor: '#f3f4f6',
+    backgroundColor: COLORS.BG_CARD,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.BORDER,
   },
   viewDetailsButtonText: {
     fontSize: 14,
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     fontWeight: '600',
   },
   adjustButton: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: COLORS.GOLD,
   },
   adjustButtonText: {
     fontSize: 14,
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '600',
   },
   packCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   packInfo: {
     flex: 1,
@@ -1562,17 +1572,17 @@ const styles = StyleSheet.create({
   packCredits: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   packPrice: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     marginTop: 4,
   },
   packDiscount: {
     fontSize: 12,
-    color: '#10b981',
+    color: COLORS.GREEN,
     fontWeight: '600',
     marginTop: 4,
   },
@@ -1582,36 +1592,36 @@ const styles = StyleSheet.create({
   },
   packPerCredit: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
   },
   editPackButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#eff6ff',
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
     borderWidth: 1,
-    borderColor: '#3b82f6',
+    borderColor: COLORS.GOLD,
   },
   editPackButtonText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3b82f6',
+    color: COLORS.GOLD,
   },
   addPackButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     borderWidth: 2,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.BORDER,
     borderStyle: 'dashed',
     gap: 8,
   },
   addPackText: {
     fontSize: 16,
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '600',
   },
   // Overview Dashboard Styles
@@ -1624,15 +1634,12 @@ const styles = StyleSheet.create({
   kpiCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   kpiIconContainer: {
     width: 56,
@@ -1645,35 +1652,32 @@ const styles = StyleSheet.create({
   kpiValue: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 4,
   },
   kpiValueSmall: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 4,
   },
   kpiLabel: {
     fontSize: 13,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     textAlign: 'center',
   },
   quickStatsContainer: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     borderRadius: 12,
     padding: 16,
     marginTop: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   quickStatsTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 12,
   },
   quickStatRow: {
@@ -1681,18 +1685,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: COLORS.BORDER,
   },
   quickStatLabel: {
     flex: 1,
     fontSize: 14,
-    color: '#4b5563',
+    color: COLORS.TEXT_MUTED,
     marginLeft: 12,
   },
   quickStatValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   emptyMetrics: {
     paddingVertical: 60,
@@ -1700,26 +1704,24 @@ const styles = StyleSheet.create({
   },
   emptyMetricsText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: COLORS.TEXT_MUTED,
     marginTop: 12,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.OVERLAY,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_CARD,
     borderRadius: 16,
     width: '100%',
     maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1727,12 +1729,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderBottomColor: COLORS.BORDER,
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   modalBody: {
     padding: 20,
@@ -1740,27 +1742,28 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#374151',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 8,
     marginTop: 12,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.BORDER,
     borderRadius: 8,
     padding: 12,
     fontSize: 16,
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
+    color: COLORS.TEXT_WHITE,
   },
   warningText: {
     fontSize: 13,
-    color: '#f59e0b',
-    backgroundColor: '#fffbeb',
+    color: COLORS.GOLD,
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
     padding: 12,
     borderRadius: 8,
     marginTop: 16,
     borderWidth: 1,
-    borderColor: '#fde68a',
+    borderColor: COLORS.GOLD_DIM,
   },
   modalButtonGroup: {
     flexDirection: 'row',
@@ -1768,59 +1771,59 @@ const styles = StyleSheet.create({
     marginTop: 20,
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: COLORS.BORDER,
   },
   modalFooter: {
     flexDirection: 'row',
     gap: 12,
     padding: 20,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
+    borderTopColor: COLORS.BORDER,
   },
   modalCancelButton: {
     flex: 1,
     padding: 16,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.BORDER,
     alignItems: 'center',
   },
   modalCancelButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
   },
   modalCreateButton: {
     flex: 1,
     padding: 16,
     borderRadius: 8,
-    backgroundColor: '#3b82f6',
+    backgroundColor: COLORS.GOLD,
     alignItems: 'center',
   },
   modalCreateButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: 'white',
+    color: COLORS.BG_DARK,
   },
   closeButtonText: {
     fontSize: 28,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     fontWeight: '300',
   },
   clientModalName: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 8,
   },
   currentBalanceText: {
     fontSize: 15,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginBottom: 20,
   },
   inputHint: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.TEXT_MUTED,
     marginTop: 4,
     marginBottom: 8,
   },
@@ -1830,19 +1833,19 @@ const styles = StyleSheet.create({
   },
   emptyStateText: {
     fontSize: 16,
-    color: '#9ca3af',
+    color: COLORS.TEXT_MUTED,
     marginTop: 12,
   },
   attendanceCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.BORDER,
   },
   attendanceInfo: {
     flex: 1,
@@ -1850,11 +1853,11 @@ const styles = StyleSheet.create({
   attendanceName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
   },
   attendanceTime: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
     marginTop: 4,
   },
   attendanceActions: {
@@ -1862,63 +1865,63 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   attendedButton: {
-    backgroundColor: '#10b981',
+    backgroundColor: COLORS.GREEN,
     padding: 10,
     borderRadius: 8,
   },
   noShowButton: {
-    backgroundColor: '#ef4444',
+    backgroundColor: COLORS.RED,
     padding: 10,
     borderRadius: 8,
   },
   settingCard: {
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
     padding: 16,
     borderRadius: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#e5e7eb',
+    borderColor: COLORS.BORDER,
   },
   settingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1f2937',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 4,
   },
   settingHint: {
     fontSize: 13,
-    color: '#9ca3af',
+    color: COLORS.TEXT_MUTED,
     marginBottom: 12,
     lineHeight: 18,
   },
   buyButtonDisabled: {
-    backgroundColor: '#9ca3af',
+    backgroundColor: '#4a4a4a',
   },
   genderButton: {
     flex: 1,
     paddingVertical: 10,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#d1d5db',
+    borderColor: COLORS.BORDER,
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: COLORS.BG_DARK,
   },
   genderButtonActive: {
-    borderColor: '#3b82f6',
-    backgroundColor: '#eff6ff',
+    borderColor: COLORS.GOLD,
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
   },
   genderButtonText: {
     fontSize: 14,
-    color: '#6b7280',
+    color: COLORS.TEXT_MUTED,
   },
   genderButtonTextActive: {
-    color: '#3b82f6',
+    color: COLORS.GOLD,
     fontWeight: '600',
   },
   modalLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#374151',
+    color: COLORS.TEXT_WHITE,
     marginBottom: 6,
     marginTop: 8,
   },

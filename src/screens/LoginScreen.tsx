@@ -34,9 +34,32 @@ const LoginScreen = () => {
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [loading, setLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isForgotPassword, setIsForgotPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+
+  const handleForgotPassword = async () => {
+    if (!email) {
+      setErrorMsg('Please enter your email address');
+      return;
+    }
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setLoading(true);
+    try {
+      const { error } = await auth.resetPassword(email);
+      setLoading(false);
+      if (error) {
+        setErrorMsg(error.message);
+        return;
+      }
+      setSuccessMsg('Password reset email sent! Check your inbox and follow the link to reset your password.');
+    } catch (e: any) {
+      setLoading(false);
+      setErrorMsg(e?.message || 'Something went wrong. Please try again.');
+    }
+  };
 
   const handleAuth = async () => {
     if (!email || !password) {
@@ -94,7 +117,7 @@ const LoginScreen = () => {
           <Image source={logoBanner} style={styles.heroBanner as any} resizeMode="cover" />
 
           <Text style={styles.subtitle}>
-            {isSignUp ? 'Create your account' : 'Welcome back'}
+            {isForgotPassword ? 'Reset your password' : isSignUp ? 'Create your account' : 'Welcome back'}
           </Text>
 
           {errorMsg && (
@@ -157,50 +180,76 @@ const LoginScreen = () => {
             <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="Enter your email" placeholderTextColor="#555" keyboardType="email-address" autoCapitalize="none" />
           </View>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Password</Text>
-            <View style={styles.passwordContainer}>
-              <TextInput
-                style={[styles.input, styles.passwordInput]}
-                value={password}
-                onChangeText={setPassword}
-                placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
-                placeholderTextColor="#555"
-                secureTextEntry={!showPassword}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
-                  {showPassword ? (
-                    <>
-                      <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      <Circle cx={12} cy={12} r={3} stroke={TEXT_MUTED} strokeWidth={2} />
-                    </>
-                  ) : (
-                    <>
-                      <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      <Path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      <Path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-                      <Line x1={1} y1={1} x2={23} y2={23} stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" />
-                    </>
-                  )}
-                </Svg>
-              </TouchableOpacity>
+          {!isForgotPassword && (
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Password</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  style={[styles.input, styles.passwordInput]}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder={isSignUp ? 'Min 6 characters' : 'Enter your password'}
+                  placeholderTextColor="#555"
+                  secureTextEntry={!showPassword}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
+                  <Svg width={22} height={22} viewBox="0 0 24 24" fill="none">
+                    {showPassword ? (
+                      <>
+                        <Path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        <Circle cx={12} cy={12} r={3} stroke={TEXT_MUTED} strokeWidth={2} />
+                      </>
+                    ) : (
+                      <>
+                        <Path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        <Path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        <Path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                        <Line x1={1} y1={1} x2={23} y2={23} stroke={TEXT_MUTED} strokeWidth={2} strokeLinecap="round" />
+                      </>
+                    )}
+                  </Svg>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
+          )}
 
-          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAuth} disabled={loading}>
-            {loading ? (
-              <ActivityIndicator color={BG_DARK} />
-            ) : (
-              <Text style={styles.buttonText}>{isSignUp ? 'SIGN UP' : 'SIGN IN'}</Text>
-            )}
-          </TouchableOpacity>
+          {isForgotPassword ? (
+            <>
+              <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleForgotPassword} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={BG_DARK} />
+                ) : (
+                  <Text style={styles.buttonText}>SEND RESET LINK</Text>
+                )}
+              </TouchableOpacity>
 
-          <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setErrorMsg(null); setSuccessMsg(null); }} style={styles.switchButton}>
-            <Text style={styles.switchButtonText}>
-              {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
-            </Text>
-          </TouchableOpacity>
+              <TouchableOpacity onPress={() => { setIsForgotPassword(false); setErrorMsg(null); setSuccessMsg(null); }} style={styles.switchButton}>
+                <Text style={styles.switchButtonText}>Back to Sign In</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAuth} disabled={loading}>
+                {loading ? (
+                  <ActivityIndicator color={BG_DARK} />
+                ) : (
+                  <Text style={styles.buttonText}>{isSignUp ? 'SIGN UP' : 'SIGN IN'}</Text>
+                )}
+              </TouchableOpacity>
+
+              {!isSignUp && (
+                <TouchableOpacity onPress={() => { setIsForgotPassword(true); setErrorMsg(null); setSuccessMsg(null); }} style={styles.forgotButton}>
+                  <Text style={styles.forgotButtonText}>Forgot your password?</Text>
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity onPress={() => { setIsSignUp(!isSignUp); setErrorMsg(null); setSuccessMsg(null); }} style={styles.switchButton}>
+                <Text style={styles.switchButtonText}>
+                  {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -325,6 +374,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     letterSpacing: 1.5,
+  },
+  forgotButton: {
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  forgotButtonText: {
+    color: TEXT_MUTED,
+    fontSize: 14,
+    fontWeight: '400',
+    textDecorationLine: 'underline',
   },
   switchButton: {
     marginTop: 20,

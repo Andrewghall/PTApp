@@ -48,6 +48,19 @@ export const auth = {
     return { error };
   },
 
+  resetPassword: async (email: string) => {
+    const redirectUrl = typeof window !== 'undefined' ? `${window.location.origin}/app/` : 'http://localhost:8081';
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: redirectUrl,
+    });
+    return { error };
+  },
+
+  updatePassword: async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    return { error };
+  },
+
   getSession: async () => {
     const { data: { session }, error } = await supabase.auth.getSession();
     return { session, error };
