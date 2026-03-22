@@ -285,7 +285,7 @@ ul {
   z-index: 2;
   text-align: center;
   max-width: 800px;
-  padding: 0 24px 40px;
+  padding: 0 24px 60px;
   margin-top: 0;
 }
 
@@ -571,7 +571,7 @@ ul {
 
 .lifts-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(2, 1fr);
   gap: 24px;
 }
 
@@ -1046,10 +1046,6 @@ ul {
    ============================================ */
 @media (max-width: 1024px) {
   .steps-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .lifts-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
