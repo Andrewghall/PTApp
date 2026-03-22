@@ -85,14 +85,15 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       const { data: metrics } = await db.getBusinessMetrics();
       setBusinessMetrics(metrics);
 
-      // Load all clients
+      // Load all clients (exclude admins)
       const { data: clientsData } = await supabase
         .from('client_profiles')
         .select(`
           *,
           credit_balances (balance),
-          profiles (email)
+          profiles!inner (email, role)
         `)
+        .eq('profiles.role', 'client')
         .order('first_name');
       setClients(clientsData || []);
 
