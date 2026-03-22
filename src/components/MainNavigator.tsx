@@ -52,29 +52,32 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({
           headerShown: false,
         }}
       >
-        <Stack.Screen
-          name="DashboardMain"
-          options={{ title: 'Dashboard' }}
-        >
-          {(props) => <DashboardScreen {...props} onLogout={onLogout} userId={userId} />}
-        </Stack.Screen>
-        <Stack.Screen name="Book" component={BookingScreen} options={{ title: 'Book a Session' }} />
-        <Stack.Screen name="History" component={SessionHistoryScreen} options={{ title: 'Session History' }} />
-        <Stack.Screen name="Refer" component={ReferralsScreen} options={{ title: 'Refer a Friend' }} />
-        <Stack.Screen name="Credits" component={CreditsScreen} />
-        <Stack.Screen name="Workout" component={WorkoutScreen} />
-        <Stack.Screen name="Analytics" component={AnalyticsScreen} />
-        <Stack.Screen name="Profile">
-          {(props) => <ProfileScreen {...props} route={{ params: { userId } }} />}
-        </Stack.Screen>
-        <Stack.Screen name="Notifications" component={NotificationsScreen} />
-        <Stack.Screen name="MyProgramme" component={MyProgrammeScreen} />
-        {userRole === 'admin' && (
+        {userRole === 'admin' ? (
           <>
             <Stack.Screen name="Admin" component={AdminScreen} options={{ title: 'Admin Portal' }} />
             <Stack.Screen name="BlockBookings" component={BlockBookingsScreen} />
             <Stack.Screen name="ProgrammeAssignments" component={ProgrammeAssignmentsScreen} />
             <Stack.Screen name="ClientDetails" component={ClientDetailsScreen} />
+          </>
+        ) : (
+          <>
+            <Stack.Screen
+              name="DashboardMain"
+              options={{ title: 'Dashboard' }}
+            >
+              {(props) => <DashboardScreen {...props} onLogout={onLogout} userId={userId} />}
+            </Stack.Screen>
+            <Stack.Screen name="Book" component={BookingScreen} options={{ title: 'Book a Session' }} />
+            <Stack.Screen name="History" component={SessionHistoryScreen} options={{ title: 'Session History' }} />
+            <Stack.Screen name="Refer" component={ReferralsScreen} options={{ title: 'Refer a Friend' }} />
+            <Stack.Screen name="Credits" component={CreditsScreen} />
+            <Stack.Screen name="Workout" component={WorkoutScreen} />
+            <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+            <Stack.Screen name="Profile">
+              {(props) => <ProfileScreen {...props} route={{ params: { userId } }} />}
+            </Stack.Screen>
+            <Stack.Screen name="Notifications" component={NotificationsScreen} />
+            <Stack.Screen name="MyProgramme" component={MyProgrammeScreen} />
           </>
         )}
       </Stack.Navigator>
@@ -101,46 +104,63 @@ export const MainNavigator: React.FC<MainNavigatorProps> = ({
               </View>
 
               <View style={styles.menuItems}>
-                <MenuItem
-                  icon="home"
-                  label="Dashboard"
-                  onPress={() => { setMenuVisible(false); }}
-                  navigationTarget="DashboardMain"
-                />
-                <MenuItem
-                  icon="calendar"
-                  label="Book a Session"
-                  onPress={() => { setMenuVisible(false); }}
-                  navigationTarget="Book"
-                />
-                <MenuItem
-                  icon="logo-whatsapp"
-                  label="WhatsApp Pedro"
-                  onPress={() => {
-                    setMenuVisible(false);
-                    Linking.openURL('https://wa.me/351926930575?text=Hi%20Pedro%2C%20I%27m%20messaging%20from%20the%20Elevate%20app.');
-                  }}
-                  navigationTarget=""
-                />
-                <MenuItem
-                  icon="time"
-                  label="Session History"
-                  onPress={() => { setMenuVisible(false); }}
-                  navigationTarget="History"
-                />
-                <MenuItem
-                  icon="gift"
-                  label="Refer a Friend"
-                  onPress={() => { setMenuVisible(false); }}
-                  navigationTarget="Refer"
-                />
-                {userRole === 'admin' && (
-                  <MenuItem
-                    icon="settings"
-                    label="Admin Portal"
-                    onPress={() => { setMenuVisible(false); }}
-                    navigationTarget="Admin"
-                  />
+                {userRole === 'admin' ? (
+                  <>
+                    <MenuItem
+                      icon="settings"
+                      label="Admin Portal"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="Admin"
+                    />
+                    <MenuItem
+                      icon="calendar"
+                      label="Block Bookings"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="BlockBookings"
+                    />
+                    <MenuItem
+                      icon="barbell"
+                      label="Programme Assignments"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="ProgrammeAssignments"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <MenuItem
+                      icon="home"
+                      label="Dashboard"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="DashboardMain"
+                    />
+                    <MenuItem
+                      icon="calendar"
+                      label="Book a Session"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="Book"
+                    />
+                    <MenuItem
+                      icon="logo-whatsapp"
+                      label="WhatsApp Pedro"
+                      onPress={() => {
+                        setMenuVisible(false);
+                        Linking.openURL('https://wa.me/351926930575?text=Hi%20Pedro%2C%20I%27m%20messaging%20from%20the%20Elevate%20app.');
+                      }}
+                      navigationTarget=""
+                    />
+                    <MenuItem
+                      icon="time"
+                      label="Session History"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="History"
+                    />
+                    <MenuItem
+                      icon="gift"
+                      label="Refer a Friend"
+                      onPress={() => { setMenuVisible(false); }}
+                      navigationTarget="Refer"
+                    />
+                  </>
                 )}
               </View>
 

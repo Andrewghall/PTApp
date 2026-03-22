@@ -41,6 +41,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
   const [refreshing, setRefreshing] = useState(false);
   const [clientProfile, setClientProfile] = useState<any>(null);
   const [creditBalance, setCreditBalance] = useState(0);
+  const [showLowCreditBanner, setShowLowCreditBanner] = useState(false);
   const [nextBooking, setNextBooking] = useState<any>(null);
   const [recentWorkouts, setRecentWorkouts] = useState<any[]>([]);
   const [userName, setUserName] = useState('');
@@ -104,6 +105,10 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
         const { data: credits } = await db.getCreditBalance(profile.id);
         setCreditBalance(credits?.balance || 0);
 
+        // Check low credits
+        const isLow = await db.hasLowCredits(profile.id);
+        setShowLowCreditBanner(isLow);
+
         // Get all upcoming bookings (next 30 days)
         const { data: bookings } = await db.getClientBookings(profile.id, 'booked');
 
@@ -162,16 +167,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
       return;
     }
 
+    // Fetch cancellation window from settings
+    const { data: windowHours } = await db.getAppSetting('cancellation_window_hours');
+    const cancelWindow = windowHours ? parseInt(String(windowHours)) : 48;
+
     // Calculate hours until session
     const sessionTime = new Date(booking.slots.start_time);
     const now = new Date();
     const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    if (hoursUntilSession < 48) {
-      // Less than 48 hours - no refund
+    if (hoursUntilSession < cancelWindow) {
+      // Late cancellation - no refund
       Alert.alert(
         'Late Cancellation',
-        'Cancellations less than 48 hours before the session will forfeit your session. You will not receive a refund. Continue?',
+        `Cancellations less than ${cancelWindow} hours before the session will forfeit your session. You will not receive a refund. Continue?`,
         [
           { text: 'No', style: 'cancel' },
           {
@@ -271,6 +280,20 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation, onLogout,
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* Low Credit Banner */}
+        {showLowCreditBanner && userRole === 'client' && (
+          <TouchableOpacity
+            style={styles.lowCreditBanner}
+            onPress={() => navigation.navigate('Credits')}
+          >
+            <Ionicons name="warning" size={20} color="#f59e0b" />
+            <Text style={styles.lowCreditText}>
+              You're running low on sessions! Tap to buy more.
+            </Text>
+            <Ionicons name="chevron-forward" size={16} color="#f59e0b" />
+          </TouchableOpacity>
+        )}
 
         {/* Next Session */}
         {nextBooking ? (
@@ -981,6 +1004,24 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#3b82f6',
+  },
+  lowCreditBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    marginHorizontal: 20,
+    marginBottom: 16,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fbbf24',
+    gap: 10,
+  },
+  lowCreditText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#92400e',
   },
 });
 

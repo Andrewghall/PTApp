@@ -346,14 +346,21 @@ export const db = {
     return { data, error: null };
   },
 
-  // Check if client has low credits (2 or fewer)
+  // Check if client has low credits (dynamic threshold from app_settings)
   hasLowCredits: async (clientId: string): Promise<boolean> => {
+    const { data: setting } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'low_credit_threshold')
+      .single();
+    const threshold = setting?.value ? parseInt(String(setting.value)) : 2;
+
     const { data } = await supabase
       .from('credit_balances')
       .select('balance')
       .eq('client_id', clientId)
       .single();
-    return (data?.balance ?? 0) <= 2;
+    return (data?.balance ?? 0) <= threshold;
   },
 
   // ── Workout Management ──
@@ -384,10 +391,10 @@ export const db = {
   },
 
   // ── Attendance Tracking ──
-  markSessionAttended: async (bookingId: string, attended: boolean) => {
+  markSessionAttended: async (bookingId: string) => {
     const { data, error } = await supabase
       .from('bookings')
-      .update({ attended, updated_at: new Date().toISOString() })
+      .update({ status: 'attended', attended: true, no_show: false, updated_at: new Date().toISOString() })
       .eq('id', bookingId)
       .select()
       .single();
@@ -397,7 +404,7 @@ export const db = {
   markSessionNoShow: async (bookingId: string) => {
     const { data, error } = await supabase
       .from('bookings')
-      .update({ no_show: true, attended: false, updated_at: new Date().toISOString() })
+      .update({ status: 'no_show', no_show: true, attended: false, updated_at: new Date().toISOString() })
       .eq('id', bookingId)
       .select()
       .single();
@@ -1038,6 +1045,57 @@ export const db = {
       .update({ read: true, read_at: new Date().toISOString() })
       .eq('client_id', clientId)
       .eq('read', false);
+  },
+
+  // ── APP SETTINGS ──
+  getAppSetting: async (key: string) => {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('value')
+      .eq('key', key)
+      .single();
+    return { data: data?.value, error };
+  },
+
+  updateAppSetting: async (key: string, value: any) => {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .update({ value: JSON.stringify(value), updated_at: new Date().toISOString() })
+      .eq('key', key)
+      .select()
+      .single();
+    return { data, error };
+  },
+
+  getAllAppSettings: async () => {
+    const { data, error } = await supabase
+      .from('app_settings')
+      .select('*');
+    return { data, error };
+  },
+
+  // ── STRIPE CHECKOUT ──
+  createCheckoutSession: async (packId: string, clientId: string) => {
+    const { data, error } = await supabase.functions.invoke('create-checkout-session', {
+      body: { packId, clientId },
+    });
+    return { data, error };
+  },
+
+  // ── TODAY'S ATTENDANCE (Admin) ──
+  getTodayBookings: async () => {
+    const today = new Date();
+    const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+    const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59).toISOString();
+
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*, slots!inner(*), client_profiles!inner(first_name, last_name)')
+      .in('status', ['booked'])
+      .gte('slots.start_time', todayStart)
+      .lte('slots.start_time', todayEnd)
+      .order('slots(start_time)', { ascending: true });
+    return { data, error };
   },
 };
 

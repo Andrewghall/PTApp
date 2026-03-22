@@ -55,40 +55,38 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
     }
   };
 
+  // Handle return from Stripe Checkout
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('payment') === 'success') {
+        Alert.alert('Payment Successful!', 'Your sessions have been added to your account.');
+        window.history.replaceState({}, '', window.location.pathname);
+        loadData();
+      } else if (params.get('payment') === 'cancelled') {
+        Alert.alert('Payment Cancelled', 'Your payment was not completed.');
+        window.history.replaceState({}, '', window.location.pathname);
+      }
+    }
+  }, []);
+
   const handlePurchase = async (pack: any) => {
     if (!clientId) return;
-
-    // Convert from cents to euros for display
-    const displayPrice = Math.round(Number(pack.price) / 100);
-    Alert.alert(
-      'Purchase Sessions',
-      `Buy ${pack.credits} sessions for €${displayPrice}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Buy Now',
-          onPress: async () => {
-            setPurchasing(true);
-            try {
-              // In real app, this would integrate with Stripe
-              // For now, we'll simulate the purchase
-              await db.addCredits(
-                clientId,
-                pack.credits,
-                `Purchased ${pack.credits} session pack for €${displayPrice}`
-              );
-
-              Alert.alert('Success!', `${pack.credits} sessions added to your account!`);
-              loadData(); // Refresh balance
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Purchase failed');
-            } finally {
-              setPurchasing(false);
-            }
-          },
-        },
-      ]
-    );
+    setPurchasing(true);
+    try {
+      const { data, error } = await db.createCheckoutSession(pack.id, clientId);
+      if (error) throw new Error(error.message || 'Failed to create checkout session');
+      if (data?.url) {
+        if (typeof window !== 'undefined') {
+          window.location.href = data.url;
+        }
+      } else {
+        throw new Error('No checkout URL returned');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to start checkout');
+      setPurchasing(false);
+    }
   };
 
   if (loading) {
@@ -205,7 +203,7 @@ const CreditsScreen: React.FC<CreditsScreenProps> = ({ navigation }) => {
                 • 1 session = €25{'\n'}
                 • Sessions never expire{'\n'}
                 • Book anytime{'\n'}
-                • Cancel up to 48 hours before for full refund
+                • Cancel within the cancellation window for full refund
               </Text>
             </View>
           </View>

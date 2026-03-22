@@ -166,6 +166,23 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
 
       // Reload data in background (after modals are already switched)
       await loadUserAndData();
+
+      // Check low credits and prompt to buy more
+      if (clientId) {
+        const isLow = await db.hasLowCredits(clientId);
+        if (isLow) {
+          setTimeout(() => {
+            Alert.alert(
+              'Running Low on Sessions',
+              `You have ${newBalance} session${newBalance !== 1 ? 's' : ''} remaining. Would you like to buy more?`,
+              [
+                { text: 'Not Now', style: 'cancel' },
+                { text: 'Buy Sessions', onPress: () => navigation.navigate('Credits') },
+              ]
+            );
+          }, 2000);
+        }
+      }
     } catch (error: any) {
       console.error('Booking failed:', error);
       Alert.alert('Booking Failed', error.message || 'Failed to book session. Please try again.');
@@ -185,16 +202,20 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
       return;
     }
 
+    // Fetch cancellation window from settings
+    const { data: windowHours } = await db.getAppSetting('cancellation_window_hours');
+    const cancelWindow = windowHours ? parseInt(String(windowHours)) : 48;
+
     // Calculate hours until session
     const sessionTime = new Date(booking.slots.start_time);
     const now = new Date();
     const hoursUntilSession = (sessionTime.getTime() - now.getTime()) / (1000 * 60 * 60);
 
-    if (hoursUntilSession < 48) {
-      // Less than 48 hours - no refund
+    if (hoursUntilSession < cancelWindow) {
+      // Late cancellation - no refund
       Alert.alert(
         'Late Cancellation',
-        'Cancellations less than 48 hours before the session will forfeit your session. You will not receive a refund. Continue?',
+        `Cancellations less than ${cancelWindow} hours before the session will forfeit your session. You will not receive a refund. Continue?`,
         [
           { text: 'No', style: 'cancel' },
           {
@@ -512,7 +533,7 @@ const BookingScreen: React.FC<BookingScreenProps> = ({ navigation }) => {
                 </Text>
                 <Text style={styles.modalCost}>Cost: 1 session</Text>
                 <Text style={styles.modalPolicy}>
-                  Cancel up to 48 hours before for full refund
+                  Cancel within the cancellation window for full refund
                 </Text>
               </>
             )}

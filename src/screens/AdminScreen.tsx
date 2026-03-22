@@ -26,7 +26,11 @@ interface AdminScreenProps {
 
 const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'clients' | 'packs'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'clients' | 'packs' | 'attendance' | 'settings'>('overview');
+  const [todayBookings, setTodayBookings] = useState<any[]>([]);
+  const [appSettings, setAppSettings] = useState<any>({});
+  const [settingsForm, setSettingsForm] = useState({ lowCreditThreshold: '', cancellationWindowHours: '' });
+  const [savingSettings, setSavingSettings] = useState(false);
   const [clients, setClients] = useState<any[]>([]);
   const [slots, setSlots] = useState<any[]>([]);
   const [creditPacks, setCreditPacks] = useState<any[]>([]);
@@ -84,10 +88,73 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       // Load credit packs
       const { data: packsData } = await db.getCreditPacks();
       setCreditPacks(packsData || []);
+
+      // Load today's bookings for attendance
+      const { data: todayData } = await db.getTodayBookings();
+      setTodayBookings(todayData || []);
+
+      // Load app settings
+      const { data: settingsData } = await db.getAllAppSettings();
+      if (settingsData) {
+        const map: any = {};
+        settingsData.forEach((s: any) => { map[s.key] = s.value; });
+        setAppSettings(map);
+        setSettingsForm({
+          lowCreditThreshold: String(map.low_credit_threshold || 2),
+          cancellationWindowHours: String(map.cancellation_window_hours || 48),
+        });
+      }
     } catch (error) {
       console.error('Error loading admin data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleMarkAttended = async (bookingId: string) => {
+    try {
+      await db.markSessionAttended(bookingId);
+      Alert.alert('Success', 'Marked as attended');
+      loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update');
+    }
+  };
+
+  const handleMarkNoShow = async (bookingId: string) => {
+    Alert.alert(
+      'Mark No Show',
+      'This client will lose their session credit. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Confirm No Show',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await db.markSessionNoShow(bookingId);
+              Alert.alert('Done', 'Marked as no-show. Credit forfeited.');
+              loadAdminData();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to update');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSaveSettings = async () => {
+    setSavingSettings(true);
+    try {
+      await db.updateAppSetting('low_credit_threshold', parseInt(settingsForm.lowCreditThreshold) || 2);
+      await db.updateAppSetting('cancellation_window_hours', parseInt(settingsForm.cancellationWindowHours) || 48);
+      Alert.alert('Saved', 'Settings updated successfully');
+      loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to save settings');
+    } finally {
+      setSavingSettings(false);
     }
   };
 
@@ -351,6 +418,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       case 'schedule': return 'Schedule';
       case 'clients': return 'Clients';
       case 'packs': return 'Pricing';
+      case 'attendance': return 'Attendance';
+      case 'settings': return 'Settings';
       default: return 'Admin Portal';
     }
   };
@@ -397,6 +466,20 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         >
           <Ionicons name="pricetag" size={20} color={activeTab === 'packs' ? '#3b82f6' : '#6b7280'} />
           <Text style={[styles.tabText, activeTab === 'packs' && styles.tabTextActive]}>Pricing</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'attendance' && styles.tabActive]}
+          onPress={() => setActiveTab('attendance')}
+        >
+          <Ionicons name="checkmark-circle" size={20} color={activeTab === 'attendance' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'attendance' && styles.tabTextActive]}>Attendance</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tab, activeTab === 'settings' && styles.tabActive]}
+          onPress={() => setActiveTab('settings')}
+        >
+          <Ionicons name="cog" size={20} color={activeTab === 'settings' ? '#3b82f6' : '#6b7280'} />
+          <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>Settings</Text>
         </TouchableOpacity>
       </ScrollView>
 
@@ -633,6 +716,100 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             >
               <Ionicons name="add-circle-outline" size={20} color="#3b82f6" />
               <Text style={styles.addPackText}>Add New Pack</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Attendance Tab */}
+        {activeTab === 'attendance' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Today's Sessions</Text>
+            <Text style={styles.sectionSubtitle}>
+              Confirm who attended today's sessions
+            </Text>
+
+            {todayBookings.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color="#9ca3af" />
+                <Text style={styles.emptyStateText}>No sessions scheduled for today</Text>
+              </View>
+            ) : (
+              todayBookings.map((booking: any) => (
+                <View key={booking.id} style={styles.attendanceCard}>
+                  <View style={styles.attendanceInfo}>
+                    <Text style={styles.attendanceName}>
+                      {booking.client_profiles?.first_name} {booking.client_profiles?.last_name}
+                    </Text>
+                    <Text style={styles.attendanceTime}>
+                      {booking.slots?.start_time ? format(new Date(booking.slots.start_time), 'HH:mm') : ''} - {booking.slots?.end_time ? format(new Date(booking.slots.end_time), 'HH:mm') : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.attendanceActions}>
+                    <TouchableOpacity
+                      style={styles.attendedButton}
+                      onPress={() => handleMarkAttended(booking.id)}
+                    >
+                      <Ionicons name="checkmark" size={20} color="white" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.noShowButton}
+                      onPress={() => handleMarkNoShow(booking.id)}
+                    >
+                      <Ionicons name="close" size={20} color="white" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Settings Tab */}
+        {activeTab === 'settings' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>App Settings</Text>
+            <Text style={styles.sectionSubtitle}>
+              Configure app behaviour
+            </Text>
+
+            <View style={styles.settingCard}>
+              <Text style={styles.settingLabel}>Low Credit Threshold</Text>
+              <Text style={styles.settingHint}>
+                Users will be prompted to buy more sessions when their balance drops to this number or below
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 2"
+                keyboardType="numeric"
+                value={settingsForm.lowCreditThreshold}
+                onChangeText={(text) => setSettingsForm({ ...settingsForm, lowCreditThreshold: text })}
+              />
+            </View>
+
+            <View style={styles.settingCard}>
+              <Text style={styles.settingLabel}>Cancellation Window (Hours)</Text>
+              <Text style={styles.settingHint}>
+                Clients must cancel at least this many hours before the session to keep their credit
+              </Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="e.g., 48"
+                keyboardType="numeric"
+                value={settingsForm.cancellationWindowHours}
+                onChangeText={(text) => setSettingsForm({ ...settingsForm, cancellationWindowHours: text })}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalCreateButton, savingSettings && styles.buyButtonDisabled]}
+              onPress={handleSaveSettings}
+              disabled={savingSettings}
+            >
+              {savingSettings ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.modalCreateButtonText}>Save Settings</Text>
+              )}
             </TouchableOpacity>
           </View>
         )}
@@ -1496,6 +1673,76 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     marginTop: 4,
     marginBottom: 8,
+  },
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#9ca3af',
+    marginTop: 12,
+  },
+  attendanceCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  attendanceInfo: {
+    flex: 1,
+  },
+  attendanceName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  attendanceTime: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginTop: 4,
+  },
+  attendanceActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  attendedButton: {
+    backgroundColor: '#10b981',
+    padding: 10,
+    borderRadius: 8,
+  },
+  noShowButton: {
+    backgroundColor: '#ef4444',
+    padding: 10,
+    borderRadius: 8,
+  },
+  settingCard: {
+    backgroundColor: 'white',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  settingLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 4,
+  },
+  settingHint: {
+    fontSize: 13,
+    color: '#9ca3af',
+    marginBottom: 12,
+    lineHeight: 18,
+  },
+  buyButtonDisabled: {
+    backgroundColor: '#9ca3af',
   },
 });
 
