@@ -71,10 +71,14 @@ function rmDirSync(dir) {
 // (using copy+delete instead of rename to avoid EXDEV errors in Docker)
 console.log('📦 Copying app files to dist/app/...');
 
-// Create app directory
-if (!fs.existsSync(appDir)) {
-  fs.mkdirSync(appDir, { recursive: true });
+// Clean dist/app/ first to remove any stale website files from previous runs
+if (fs.existsSync(appDir)) {
+  rmDirSync(appDir);
 }
+fs.mkdirSync(appDir, { recursive: true });
+
+// Website file names to skip (these should NOT go into dist/app/)
+const websiteFiles = new Set(fs.existsSync(websiteDir) ? fs.readdirSync(websiteDir) : []);
 
 // Get all files/dirs in dist except 'app' itself
 const distContents = fs.readdirSync(distDir).filter(item => item !== 'app');
@@ -93,6 +97,24 @@ for (const item of distContents) {
   }
 }
 console.log(`✅ Moved ${distContents.length} items to dist/app/`);
+
+// Remove website files that leaked into dist/app/
+for (const item of websiteFiles) {
+  const leakedPath = path.join(appDir, item);
+  if (fs.existsSync(leakedPath)) {
+    const stat = fs.statSync(leakedPath);
+    if (stat.isDirectory()) {
+      // Only remove if it's a website-specific directory (not shared like images)
+      // Keep _expo, assets, metadata.json which are Expo-specific
+    } else {
+      // Remove website HTML/CSS/JS files from app dir
+      if (['.html', '.css', '.xml', '.json'].includes(path.extname(item)) && item !== 'index.html' && item !== 'metadata.json') {
+        fs.unlinkSync(leakedPath);
+        console.log(`🧹 Removed leaked website file from app/: ${item}`);
+      }
+    }
+  }
+}
 
 // Step 2b: Copy _expo and assets back to dist root (app references them with absolute paths like /_expo/...)
 const appAssetDirs = ['_expo', 'assets'];
