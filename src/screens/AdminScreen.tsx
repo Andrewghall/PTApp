@@ -424,19 +424,36 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
         gender: newClient.gender,
       });
 
-      if (error) throw new Error(error.message || 'Failed to create client');
+      if (error) {
+        const errMsg = typeof error === 'string' ? error : error.message || JSON.stringify(error);
+        throw new Error(errMsg);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
 
       const message = data?.emailSent
         ? `Account created for ${newClient.firstName}! A welcome email has been sent to ${newClient.email} with their login details.`
-        : `Account created for ${newClient.firstName}!\n\nTemporary password: ${data?.tempPassword}\n\nPlease share this with the client securely. They will be prompted to change it on first login.`;
-
-      Alert.alert('Client Created', message);
+        : `Account created for ${newClient.firstName}!\n\nTemporary password: ${data?.tempPassword}\n\nPlease share this with the client securely.`;
 
       setShowAddClientModal(false);
       setNewClient({ email: '', firstName: '', lastName: '', phone: '', dateOfBirth: '', gender: '' });
       await loadAdminData();
+
+      // Use window.alert on web for reliability
+      if (typeof window !== 'undefined') {
+        window.alert(message);
+      } else {
+        Alert.alert('Client Created', message);
+      }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create client');
+      const msg = error.message || 'Failed to create client';
+      if (typeof window !== 'undefined') {
+        window.alert('Error: ' + msg);
+      } else {
+        Alert.alert('Error', msg);
+      }
     } finally {
       setAddingClient(false);
     }
@@ -856,7 +873,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
 
               <Text style={styles.inputLabel}>Gender</Text>
               <View style={styles.genderRow}>
-                {['male', 'female', 'other'].map((g) => (
+                {['male', 'female'].map((g) => (
                   <TouchableOpacity
                     key={g}
                     style={[styles.genderButton, newClient.gender === g && styles.genderButtonActive]}
