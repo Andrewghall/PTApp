@@ -26,13 +26,11 @@ serve(async (req) => {
       });
     }
 
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const callerClient = createClient(supabaseUrl, anonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: { user: caller } } = await callerClient.auth.getUser();
-    if (!caller) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+    // Use service role to verify the user's token
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user: caller }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !caller) {
+      return new Response(JSON.stringify({ error: 'Unauthorized: ' + (authError?.message || 'invalid token') }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -136,7 +134,7 @@ serve(async (req) => {
             'Authorization': `Bearer ${resendApiKey}`,
           },
           body: JSON.stringify({
-            from: 'Elevate Gym <noreply@elevategym.pt>',
+            from: 'Elevate Gym <noreply@send.elevategym.pt>',
             to: [email],
             subject: 'Welcome to Elevate Gym - Your Account Details',
             html: emailHtml,
