@@ -134,13 +134,12 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
       const { data: todayData } = await db.getTodayBookings();
       setTodayBookings(todayData || []);
 
-      // Load payments for finance
+      // Load ALL payments for finance (no limit — this is the income statement)
       const { data: paymentsData } = await supabase
         .from('payments')
         .select('*, client_profiles(first_name, last_name)')
         .eq('status', 'completed')
-        .order('created_at', { ascending: false })
-        .limit(50);
+        .order('created_at', { ascending: false });
       setPayments(paymentsData || []);
 
       const total = (paymentsData || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
@@ -514,7 +513,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
       showToast(message, 'success');
     } catch (error: any) {
       const msg = error.message || 'Failed to create client';
-      showToast(msg, 'error');
+      Alert.alert('Error Creating Client', msg);
     } finally {
       setAddingClient(false);
     }
@@ -590,6 +589,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+
+      {/* Toast Notification */}
+      {toast && (
+        <View style={[styles.toastContainer, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
+          <Text style={styles.toastText}>{toast.message}</Text>
+        </View>
+      )}
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Elevate Gym Admin</Text>
@@ -1916,6 +1923,34 @@ const styles = StyleSheet.create({
   genderButtonTextActive: {
     color: COLORS.GOLD,
     fontWeight: '600',
+  },
+
+  // Toast
+  toastContainer: {
+    position: 'absolute',
+    bottom: 32,
+    left: 20,
+    right: 20,
+    padding: 16,
+    borderRadius: 10,
+    zIndex: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 10,
+  },
+  toastSuccess: {
+    backgroundColor: '#10b981',
+  },
+  toastError: {
+    backgroundColor: '#ef4444',
+  },
+  toastText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 
   // Finance
