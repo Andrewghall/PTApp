@@ -107,19 +107,40 @@ serve(async (req) => {
       .update({ value: JSON.stringify(newCount) })
       .eq('key', 'stripe_payment_count');
 
-    // 5. Alternate payout destination (if bank account IDs are configured)
-    const bankAccount1 = Deno.env.get('BANK_ACCOUNT_ID_1');
-    const bankAccount2 = Deno.env.get('BANK_ACCOUNT_ID_2');
+    // 5. Alternate payout destination between the two configured bank accounts
+    try {
+      // Read bank account IDs from app_settings (set via the app), fall back to env vars
+      const { data: bankSetting1 } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'bank_account_id_1')
+        .single();
+      const { data: bankSetting2 } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'bank_account_id_2')
+        .single();
 
-    if (bankAccount1 && bankAccount2) {
-      try {
-        const targetBank = newCount % 2 === 1 ? bankAccount1 : bankAccount2;
-        // Note: This sets the default payout bank account for the next payout
-        // Only works if both bank accounts are added to the Stripe account
-        console.log(`Payment #${newCount}: routing next payout to bank ${newCount % 2 === 1 ? '1' : '2'}`);
-      } catch (bankErr: any) {
-        console.error('Bank alternation error (non-fatal):', bankErr.message);
+      const bankAccount1 = bankSetting1?.value
+        ? String(bankSetting1.value).replace(/"/g, '')
+        : Deno.env.get('BANK_ACCOUNT_ID_1');
+      const bankAccount2 = bankSetting2?.value
+        ? String(bankSetting2.value).replace(/"/g, '')
+        : Deno.env.get('BANK_ACCOUNT_ID_2');
+
+      if (bankAccount1 && bankAccount2) {
+        const targetBankId = newCount % 2 === 1 ? bankAccount1 : bankAccount2;
+        const slotLabel = newCount % 2 === 1 ? '1' : '2';
+
+        // Set the target bank account as default for EUR so next payout goes there
+        const account = await stripe.accounts.retrieve();
+        await stripe.accounts.updateExternalAccount(account.id, targetBankId, {
+          default_for_currency: true,
+        });
+        console.log(`Payment #${newCount}: set bank account ${slotLabel} (${targetBankId}) as default payout`);
       }
+    } catch (bankErr: any) {
+      console.error('Bank alternation error (non-fatal):', bankErr.message);
     }
 
     // 6. Create notification for client

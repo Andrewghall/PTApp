@@ -28,7 +28,7 @@ const COLORS = {
   OVERLAY: 'rgba(0, 0, 0, 0.85)',
 };
 
-type TabKey = 'today' | 'schedule' | 'clients' | 'pricing' | 'settings';
+type TabKey = 'today' | 'schedule' | 'clients' | 'pricing' | 'finance' | 'settings';
 
 interface AdminScreenProps {
   navigation: any;
@@ -54,6 +54,28 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
   const [showEditPackModal, setShowEditPackModal] = useState(false);
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [editPackForm, setEditPackForm] = useState({ credits: '', price: '', discount: '' });
+
+  // Toast notification state
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Finance state
+  const [payments, setPayments] = useState<any[]>([]);
+  const [totalRevenue, setTotalRevenue] = useState(0);
+  const [monthlyRevenue, setMonthlyRevenue] = useState(0);
+  const [weeklyRevenue, setWeeklyRevenue] = useState(0);
+  const [dailyRevenue, setDailyRevenue] = useState(0);
+
+  // Bank account state
+  const [bankAccount1Form, setBankAccount1Form] = useState({ iban: '', accountHolderName: '' });
+  const [bankAccount2Form, setBankAccount2Form] = useState({ iban: '', accountHolderName: '' });
+  const [savingBank1, setSavingBank1] = useState(false);
+  const [savingBank2, setSavingBank2] = useState(false);
+  const [savedBankAccounts, setSavedBankAccounts] = useState<{ slot1?: string; slot2?: string }>({});
+
+  const showToast = (message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 5000);
+  };
 
   // Add Client state
   const [showAddClientModal, setShowAddClientModal] = useState(false);
@@ -111,6 +133,54 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
       // Load today's bookings for attendance
       const { data: todayData } = await db.getTodayBookings();
       setTodayBookings(todayData || []);
+
+      // Load payments for finance
+      const { data: paymentsData } = await supabase
+        .from('payments')
+        .select('*, client_profiles(first_name, last_name)')
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false })
+        .limit(50);
+      setPayments(paymentsData || []);
+
+      const total = (paymentsData || []).reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      setTotalRevenue(total);
+
+      const now = new Date();
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      const monthly = (paymentsData || [])
+        .filter((p: any) => p.created_at >= monthStart)
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      setMonthlyRevenue(monthly);
+
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      const weekly = (paymentsData || [])
+        .filter((p: any) => p.created_at >= weekStart.toISOString())
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      setWeeklyRevenue(weekly);
+
+      const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
+      const daily = (paymentsData || [])
+        .filter((p: any) => p.created_at >= dayStart)
+        .reduce((sum: number, p: any) => sum + (p.amount || 0), 0);
+      setDailyRevenue(daily);
+
+      // Load saved bank account IDs from app_settings
+      const { data: bankSettings } = await supabase
+        .from('app_settings')
+        .select('key, value')
+        .in('key', ['bank_account_id_1', 'bank_account_id_2']);
+      if (bankSettings) {
+        const saved: { slot1?: string; slot2?: string } = {};
+        bankSettings.forEach((s: any) => {
+          const val = typeof s.value === 'string' ? s.value.replace(/"/g, '') : String(s.value);
+          if (s.key === 'bank_account_id_1') saved.slot1 = val;
+          if (s.key === 'bank_account_id_2') saved.slot2 = val;
+        });
+        setSavedBankAccounts(saved);
+      }
 
       // Load app settings
       const { data: settingsData } = await db.getAllAppSettings();
@@ -441,19 +511,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
       setNewClient({ email: '', firstName: '', lastName: '', phone: '', dateOfBirth: '', gender: '' });
       await loadAdminData();
 
-      // Use window.alert on web for reliability
-      if (typeof window !== 'undefined') {
-        window.alert(message);
-      } else {
-        Alert.alert('Client Created', message);
-      }
+      showToast(message, 'success');
     } catch (error: any) {
       const msg = error.message || 'Failed to create client';
-      if (typeof window !== 'undefined') {
-        window.alert('Error: ' + msg);
-      } else {
-        Alert.alert('Error', msg);
-      }
+      showToast(msg, 'error');
     } finally {
       setAddingClient(false);
     }
@@ -465,6 +526,38 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
       onLogout();
     } else {
       navigation.navigate('Login');
+    }
+  };
+
+  const handleSetupBankAccount = async (slot: 1 | 2) => {
+    const form = slot === 1 ? bankAccount1Form : bankAccount2Form;
+    if (!form.iban.trim() || !form.accountHolderName.trim()) {
+      showToast('IBAN and account holder name are required', 'error');
+      return;
+    }
+
+    if (slot === 1) setSavingBank1(true);
+    else setSavingBank2(true);
+
+    try {
+      const { data, error } = await db.setupBankAccount({
+        iban: form.iban.trim().replace(/\s/g, ''),
+        accountHolderName: form.accountHolderName.trim(),
+        bankAccountSlot: slot,
+      });
+
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+
+      showToast(`Bank account ${slot} saved! (${data?.last4 ? `ending ${data.last4}` : 'confirmed'})`, 'success');
+      if (slot === 1) setBankAccount1Form({ iban: '', accountHolderName: '' });
+      else setBankAccount2Form({ iban: '', accountHolderName: '' });
+      await loadAdminData();
+    } catch (err: any) {
+      showToast(err.message || 'Failed to save bank account', 'error');
+    } finally {
+      if (slot === 1) setSavingBank1(false);
+      else setSavingBank2(false);
     }
   };
 
@@ -491,6 +584,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
     { key: 'schedule', label: 'Schedule' },
     { key: 'clients', label: 'Clients' },
     { key: 'pricing', label: 'Pricing' },
+    { key: 'finance', label: 'Finance' },
     { key: 'settings', label: 'Settings' },
   ];
 
@@ -733,6 +827,153 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
           </View>
         )}
 
+        {/* Finance Tab */}
+        {activeTab === 'finance' && (
+          <View>
+            {/* Revenue Overview */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Revenue Overview</Text>
+              <Text style={styles.sectionSubtitle}>{format(new Date(), 'MMMM yyyy')}</Text>
+
+              <View style={styles.revenueGrid}>
+                <View style={styles.revenueCard}>
+                  <Text style={styles.revenueLabel}>Today</Text>
+                  <Text style={styles.revenueAmount}>€{(dailyRevenue / 100).toFixed(2)}</Text>
+                </View>
+                <View style={styles.revenueCard}>
+                  <Text style={styles.revenueLabel}>This Week</Text>
+                  <Text style={styles.revenueAmount}>€{(weeklyRevenue / 100).toFixed(2)}</Text>
+                </View>
+                <View style={styles.revenueCard}>
+                  <Text style={styles.revenueLabel}>This Month</Text>
+                  <Text style={styles.revenueAmount}>€{(monthlyRevenue / 100).toFixed(2)}</Text>
+                </View>
+                <View style={[styles.revenueCard, styles.revenueCardGold]}>
+                  <Text style={styles.revenueLabel}>All Time</Text>
+                  <Text style={[styles.revenueAmount, styles.revenueAmountGold]}>€{(totalRevenue / 100).toFixed(2)}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Bank Accounts */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Bank Accounts</Text>
+              <Text style={styles.sectionSubtitle}>Payments alternate between these two accounts</Text>
+
+              {/* Bank Account 1 */}
+              <View style={styles.bankAccountBlock}>
+                <View style={styles.bankAccountHeaderRow}>
+                  <Text style={styles.bankAccountTitle}>Account 1</Text>
+                  {savedBankAccounts.slot1 && (
+                    <View style={styles.bankAccountBadge}>
+                      <Text style={styles.bankAccountBadgeText}>Configured</Text>
+                    </View>
+                  )}
+                </View>
+                {savedBankAccounts.slot1 && (
+                  <Text style={styles.bankAccountId}>ID: {savedBankAccounts.slot1}</Text>
+                )}
+                <Text style={styles.inputLabel}>IBAN</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="PT50 0000 0000 0000 0000 0000 0"
+                  placeholderTextColor={COLORS.TEXT_MUTED}
+                  autoCapitalize="characters"
+                  value={bankAccount1Form.iban}
+                  onChangeText={(t) => setBankAccount1Form({ ...bankAccount1Form, iban: t })}
+                />
+                <Text style={styles.inputLabel}>Account Holder Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Name on account"
+                  placeholderTextColor={COLORS.TEXT_MUTED}
+                  value={bankAccount1Form.accountHolderName}
+                  onChangeText={(t) => setBankAccount1Form({ ...bankAccount1Form, accountHolderName: t })}
+                />
+                <TouchableOpacity
+                  style={[styles.goldButton, savingBank1 && styles.buttonDisabled]}
+                  onPress={() => handleSetupBankAccount(1)}
+                  disabled={savingBank1}
+                >
+                  {savingBank1 ? (
+                    <ActivityIndicator color={COLORS.BG_DARK} />
+                  ) : (
+                    <Text style={styles.goldButtonText}>{savedBankAccounts.slot1 ? 'Update Account 1' : 'Save Account 1'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              {/* Bank Account 2 */}
+              <View style={[styles.bankAccountBlock, { marginTop: 16 }]}>
+                <View style={styles.bankAccountHeaderRow}>
+                  <Text style={styles.bankAccountTitle}>Account 2</Text>
+                  {savedBankAccounts.slot2 && (
+                    <View style={styles.bankAccountBadge}>
+                      <Text style={styles.bankAccountBadgeText}>Configured</Text>
+                    </View>
+                  )}
+                </View>
+                {savedBankAccounts.slot2 && (
+                  <Text style={styles.bankAccountId}>ID: {savedBankAccounts.slot2}</Text>
+                )}
+                <Text style={styles.inputLabel}>IBAN</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="PT50 0000 0000 0000 0000 0000 0"
+                  placeholderTextColor={COLORS.TEXT_MUTED}
+                  autoCapitalize="characters"
+                  value={bankAccount2Form.iban}
+                  onChangeText={(t) => setBankAccount2Form({ ...bankAccount2Form, iban: t })}
+                />
+                <Text style={styles.inputLabel}>Account Holder Name</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Name on account"
+                  placeholderTextColor={COLORS.TEXT_MUTED}
+                  value={bankAccount2Form.accountHolderName}
+                  onChangeText={(t) => setBankAccount2Form({ ...bankAccount2Form, accountHolderName: t })}
+                />
+                <TouchableOpacity
+                  style={[styles.goldButton, savingBank2 && styles.buttonDisabled]}
+                  onPress={() => handleSetupBankAccount(2)}
+                  disabled={savingBank2}
+                >
+                  {savingBank2 ? (
+                    <ActivityIndicator color={COLORS.BG_DARK} />
+                  ) : (
+                    <Text style={styles.goldButtonText}>{savedBankAccounts.slot2 ? 'Update Account 2' : 'Save Account 2'}</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Recent Payments */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Recent Payments</Text>
+              {payments.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="card-outline" size={48} color={COLORS.TEXT_MUTED} />
+                  <Text style={styles.emptyStateText}>No payments yet</Text>
+                </View>
+              ) : (
+                payments.map((p: any) => (
+                  <View key={p.id} style={styles.paymentRow}>
+                    <View style={styles.paymentInfo}>
+                      <Text style={styles.paymentName}>
+                        {p.client_profiles?.first_name} {p.client_profiles?.last_name}
+                      </Text>
+                      <Text style={styles.paymentDate}>
+                        {format(new Date(p.created_at), 'dd MMM yyyy, HH:mm')}
+                      </Text>
+                    </View>
+                    <Text style={styles.paymentAmount}>€{(p.amount / 100).toFixed(2)}</Text>
+                  </View>
+                ))
+              )}
+            </View>
+          </View>
+        )}
+
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <View style={styles.section}>
@@ -790,8 +1031,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Weekly Slots</Text>
-              <TouchableOpacity onPress={() => setShowWeeksModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+              <TouchableOpacity onPress={() => setShowWeeksModal(false)} style={styles.modalCloseButton}>
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
             <View style={styles.modalBody}>
@@ -806,7 +1047,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
                   <Text style={styles.weeksOptionSub}>~{weeks * 10} slots (Mon-Fri, 2/day)</Text>
                 </TouchableOpacity>
               ))}
-
+            </View>
+            <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
                 onPress={() => setShowWeeksModal(false)}
@@ -825,7 +1067,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add New Client</Text>
               <TouchableOpacity onPress={() => setShowAddClientModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
 
@@ -928,7 +1170,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Adjust Credits</Text>
               <TouchableOpacity onPress={() => setShowAdjustCreditsModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
 
@@ -981,7 +1223,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
 
@@ -1047,7 +1289,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowEditPackModal(false)}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
 
@@ -1113,7 +1355,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Slot</Text>
               <TouchableOpacity onPress={() => { setShowSlotModal(false); setSelectedSlot(null); }}>
-                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={28} color={COLORS.TEXT_WHITE} />
               </TouchableOpacity>
             </View>
 
@@ -1674,6 +1916,105 @@ const styles = StyleSheet.create({
   genderButtonTextActive: {
     color: COLORS.GOLD,
     fontWeight: '600',
+  },
+
+  // Finance
+  revenueGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+    marginTop: 16,
+  },
+  revenueCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: COLORS.BG_DARK,
+    borderRadius: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    alignItems: 'center',
+  },
+  revenueCardGold: {
+    borderColor: COLORS.GOLD_DIM,
+  },
+  revenueLabel: {
+    fontSize: 12,
+    color: COLORS.TEXT_MUTED,
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  revenueAmount: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: COLORS.TEXT_WHITE,
+  },
+  revenueAmountGold: {
+    color: COLORS.GOLD,
+  },
+  paymentRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  paymentInfo: {
+    flex: 1,
+  },
+  paymentName: {
+    fontSize: 15,
+    color: COLORS.TEXT_WHITE,
+    fontWeight: '500',
+  },
+  paymentDate: {
+    fontSize: 12,
+    color: COLORS.TEXT_MUTED,
+    marginTop: 2,
+  },
+  paymentAmount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: COLORS.GREEN,
+  },
+  bankAccountBlock: {
+    backgroundColor: COLORS.BG_DARK,
+    borderRadius: 10,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  bankAccountHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  bankAccountTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  bankAccountBadge: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: COLORS.GREEN,
+  },
+  bankAccountBadgeText: {
+    fontSize: 11,
+    color: COLORS.GREEN,
+    fontWeight: '600',
+  },
+  bankAccountId: {
+    fontSize: 12,
+    color: COLORS.TEXT_MUTED,
+    marginBottom: 12,
+    fontFamily: 'monospace',
   },
 
   // Warning

@@ -1169,6 +1169,45 @@ export const db = {
     const { data, error } = await supabase.functions.invoke('admin-create-client', {
       body: clientData,
     });
+    if (error) {
+      // Extract the real error message from the HTTP response body
+      let message = error.message;
+      try {
+        const context = (error as any).context;
+        if (context?.json) {
+          const body = await context.json();
+          if (body?.error) message = body.error;
+        } else if (data?.error) {
+          message = data.error;
+        }
+      } catch (_) {}
+      return { data: null, error: { message } };
+    }
+    return { data, error };
+  },
+
+  // ── ADMIN: Setup Bank Account ──
+  setupBankAccount: async (bankData: {
+    iban: string;
+    accountHolderName: string;
+    bankAccountSlot: 1 | 2;
+  }) => {
+    const { data, error } = await supabase.functions.invoke('setup-bank-account', {
+      body: bankData,
+    });
+    if (error) {
+      let message = error.message;
+      try {
+        const context = (error as any).context;
+        if (context?.json) {
+          const body = await context.json();
+          if (body?.error) message = body.error;
+        } else if (data?.error) {
+          message = data.error;
+        }
+      } catch (_) {}
+      return { data: null, error: { message } };
+    }
     return { data, error };
   },
 
