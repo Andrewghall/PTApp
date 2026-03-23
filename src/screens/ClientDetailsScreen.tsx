@@ -13,7 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { db, supabase } from '../lib/supabase';
 import { format, parseISO, differenceInMonths, differenceInDays } from 'date-fns';
 
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface ClientDetailsScreenProps {
   navigation: any;

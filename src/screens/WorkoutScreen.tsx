@@ -17,7 +17,7 @@ import { format } from 'date-fns';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner and exercise images
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 const maleImages = {
   BenchPress: require('../../MaleBenchPress.png'),
   Squats: require('../../MaleSquats.png'),

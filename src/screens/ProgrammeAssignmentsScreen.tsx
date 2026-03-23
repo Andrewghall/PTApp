@@ -16,7 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
 
 // Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface ProgrammeAssignmentsScreenProps {
   navigation: any;

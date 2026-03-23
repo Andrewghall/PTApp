@@ -13,7 +13,7 @@ import {
 import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { auth } from '../lib/supabase';
 
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 const GOLD = '#c8a94e';
 const BG_DARK = '#0a0a0a';

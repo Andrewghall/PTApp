@@ -17,7 +17,7 @@ import { db, auth, supabase } from '../lib/supabase';
 import { format } from 'date-fns';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface BlockBookingsScreenProps {
   navigation: any;

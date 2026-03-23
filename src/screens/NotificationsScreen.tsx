@@ -15,7 +15,7 @@ import { db, auth } from '../lib/supabase';
 import { format, parseISO } from 'date-fns';
 
 // Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface NotificationsScreenProps {
   navigation: any;

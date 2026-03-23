@@ -12,33 +12,35 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, auth } from '../lib/supabase';
-import { format, subMonths, subWeeks, subYears } from 'date-fns';
+import { format, subMonths, subYears } from 'date-fns';
 
-// Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 type TimeRange = '1m' | '3m' | '6m' | '1y' | 'all';
+type ChartMode = 'weight' | 'reps' | 'volume';
 
 interface AnalyticsScreenProps {
   navigation: any;
 }
 
+const GOLD = '#c8a94e';
+const BG = '#0a0a0a';
+const CARD = '#141414';
+const BORDER = '#2a2a2a';
+const WHITE = '#ffffff';
+const MUTED = '#9ca3af';
+const GREEN = '#10b981';
+const PURPLE = '#8b5cf6';
+
 const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
-  const [workouts, setWorkouts] = useState<any[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
+  const [chartMode, setChartMode] = useState<ChartMode>('weight');
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
   const [exercises, setExercises] = useState<any[]>([]);
-  const [stats, setStats] = useState({
-    totalWorkouts: 0,
-    totalSets: 0,
-    totalVolume: 0,
-    avgWorkoutsPerWeek: 0,
-  });
+  const [stats, setStats] = useState({ totalWorkouts: 0, totalSets: 0, totalVolume: 0, avgWorkoutsPerWeek: 0 });
 
-  useEffect(() => {
-    loadAnalytics();
-  }, []);
+  useEffect(() => { loadAnalytics(); }, []);
 
   const loadAnalytics = async () => {
     try {
@@ -46,50 +48,43 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
       if (session) {
         const { data: profile } = await db.getClientProfile(session.user.id);
         if (profile) {
-          // Load all workouts
-          const { data: workoutsData } = await db.getClientWorkouts(profile.id, 100);
-          setWorkouts(workoutsData || []);
+          const { data: workoutsData } = await db.getClientWorkouts(profile.id, 1000);
 
-          // Calculate stats
-          const totalWorkouts = workoutsData?.length || 0;
           let totalSets = 0;
           let totalVolume = 0;
-          const exerciseMap = new Map();
+          const exerciseMap = new Map<string, { name: string; category: string; sessions: any[] }>();
 
           workoutsData?.forEach((workout: any) => {
             workout.workout_exercises?.forEach((we: any) => {
               const exerciseName = we.exercises?.name || 'Unknown';
               if (!exerciseMap.has(exerciseName)) {
-                exerciseMap.set(exerciseName, {
-                  name: exerciseName,
-                  category: we.exercises?.category,
-                  data: [],
+                exerciseMap.set(exerciseName, { name: exerciseName, category: we.exercises?.category || '', sessions: [] });
+              }
+              const sets = we.set_entries || [];
+              if (sets.length > 0) {
+                totalSets += sets.length;
+                sets.forEach((s: any) => { totalVolume += (s.weight || 0) * (s.reps || 0); });
+                // Best set per session (highest weight, highest reps, highest volume)
+                exerciseMap.get(exerciseName)!.sessions.push({
+                  date: workout.date,
+                  bestWeight: Math.max(...sets.map((s: any) => s.weight || 0)),
+                  bestReps: Math.max(...sets.map((s: any) => s.reps || 0)),
+                  bestVolume: Math.max(...sets.map((s: any) => (s.weight || 0) * (s.reps || 0))),
                 });
               }
-
-              we.set_entries?.forEach((set: any) => {
-                totalSets++;
-                totalVolume += set.weight * set.reps;
-                exerciseMap.get(exerciseName).data.push({
-                  date: workout.date,
-                  weight: set.weight,
-                  reps: set.reps,
-                  volume: set.weight * set.reps,
-                });
-              });
             });
           });
 
-          setExercises(Array.from(exerciseMap.values()));
-          if (!selectedExercise && exerciseMap.size > 0) {
-            setSelectedExercise(Array.from(exerciseMap.keys())[0]);
-          }
+          const exerciseList = Array.from(exerciseMap.values());
+          setExercises(exerciseList);
+          if (!selectedExercise && exerciseList.length > 0) setSelectedExercise(exerciseList[0].name);
 
+          const totalWorkouts = workoutsData?.length || 0;
           setStats({
             totalWorkouts,
             totalSets,
             totalVolume: Math.round(totalVolume),
-            avgWorkoutsPerWeek: totalWorkouts > 0 ? Math.round((totalWorkouts / 12) * 10) / 10 : 0,
+            avgWorkoutsPerWeek: totalWorkouts > 0 ? Math.round((totalWorkouts / Math.max(1, totalWorkouts / 3)) * 10) / 10 : 0,
           });
         }
       }
@@ -100,312 +95,248 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
     }
   };
 
-  const getFilteredData = () => {
+  const getFilteredSessions = () => {
     if (!selectedExercise) return [];
     const exercise = exercises.find((e) => e.name === selectedExercise);
     if (!exercise) return [];
-
-    let cutoffDate = new Date();
-    switch (timeRange) {
-      case '1m':
-        cutoffDate = subMonths(new Date(), 1);
-        break;
-      case '3m':
-        cutoffDate = subMonths(new Date(), 3);
-        break;
-      case '6m':
-        cutoffDate = subMonths(new Date(), 6);
-        break;
-      case '1y':
-        cutoffDate = subYears(new Date(), 1);
-        break;
-      default:
-        return exercise.data;
-    }
-
-    return exercise.data.filter((d: any) => new Date(d.date) >= cutoffDate);
-  };
-
-  const getChartData = () => {
-    const data = getFilteredData();
-    return data.map((d: any) => d.weight);
+    const now = new Date();
+    const cutoff: Date | null =
+      timeRange === '1m' ? subMonths(now, 1) :
+      timeRange === '3m' ? subMonths(now, 3) :
+      timeRange === '6m' ? subMonths(now, 6) :
+      timeRange === '1y' ? subYears(now, 1) : null;
+    const filtered = cutoff ? exercise.sessions.filter((s: any) => new Date(s.date) >= cutoff!) : exercise.sessions;
+    return [...filtered].sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   };
 
   const getPersonalRecords = () => {
-    const data = getFilteredData();
-    if (data.length === 0) return { maxWeight: 0, maxVolume: 0, maxReps: 0 };
-
+    const s = getFilteredSessions();
+    if (!s.length) return { maxWeight: 0, maxReps: 0, maxVolume: 0 };
     return {
-      maxWeight: Math.max(...data.map((d: any) => d.weight)),
-      maxVolume: Math.max(...data.map((d: any) => d.volume)),
-      maxReps: Math.max(...data.map((d: any) => d.reps)),
+      maxWeight: Math.max(...s.map((x: any) => x.bestWeight)),
+      maxReps: Math.max(...s.map((x: any) => x.bestReps)),
+      maxVolume: Math.max(...s.map((x: any) => x.bestVolume)),
     };
   };
 
-  const renderLineChart = (data: number[]) => {
-    if (data.length === 0) return null;
+  const renderSVGChart = (values: number[], dates: string[]) => {
+    if (values.length < 2) {
+      return <View style={styles.chartEmpty}><Text style={styles.chartEmptyText}>Need at least 2 sessions to chart</Text></View>;
+    }
 
-    const chartWidth = Dimensions.get('window').width - 64; // padding
-    const chartHeight = 180;
-    const padding = 20;
-    const innerWidth = chartWidth - padding * 2;
-    const innerHeight = chartHeight - padding * 2;
+    const width = Math.min(Dimensions.get('window').width - 80, 700);
+    const height = 200;
+    const padL = 50, padR = 16, padT = 16, padB = 32;
+    const innerW = width - padL - padR;
+    const innerH = height - padT - padB;
+    const minVal = Math.min(...values);
+    const maxVal = Math.max(...values);
+    const range = maxVal - minVal || 1;
+    const toX = (i: number) => padL + (i / (values.length - 1)) * innerW;
+    const toY = (v: number) => padT + innerH - ((v - minVal) / range) * innerH;
 
-    const minValue = Math.min(...data);
-    const maxValue = Math.max(...data);
-    const valueRange = maxValue - minValue || 1;
+    const points = values.map((v, i) => ({ x: toX(i), y: toY(v), v }));
+    const polyPoints = points.map(p => `${p.x},${p.y}`).join(' ');
+    const areaPath = `M ${points[0].x},${points[0].y} ` +
+      points.map(p => `L ${p.x},${p.y}`).join(' ') +
+      ` L ${points[points.length - 1].x},${padT + innerH} L ${padL},${padT + innerH} Z`;
 
-    // Calculate points
-    const points = data.map((value, index) => {
-      const x = padding + (index / (data.length - 1 || 1)) * innerWidth;
-      const y = padding + innerHeight - ((value - minValue) / valueRange) * innerHeight;
-      return { x, y, value };
-    });
-
-    // Create path for line
-    const pathData = points.map((point, index) => {
-      if (index === 0) return `M ${point.x} ${point.y}`;
-      return `L ${point.x} ${point.y}`;
-    }).join(' ');
-
-    // Create area fill path
-    const areaPath = `${pathData} L ${points[points.length - 1].x} ${chartHeight - padding} L ${padding} ${chartHeight - padding} Z`;
+    const color = chartMode === 'weight' ? GOLD : chartMode === 'reps' ? GREEN : PURPLE;
+    const unit = chartMode === 'reps' ? '' : 'kg';
+    const mid = Math.round((maxVal + minVal) / 2);
+    const dateLabels = [0, Math.floor((values.length - 1) / 2), values.length - 1];
 
     return (
-      <View style={styles.chartSvgContainer}>
-        {/* Y-axis labels */}
-        <View style={styles.yAxisLabels}>
-          <Text style={styles.axisLabel}>{maxValue}kg</Text>
-          <Text style={styles.axisLabel}>{Math.round((maxValue + minValue) / 2)}kg</Text>
-          <Text style={styles.axisLabel}>{minValue}kg</Text>
-        </View>
-
-        {/* Chart area */}
-        <View style={[styles.chartCanvas, { width: chartWidth, height: chartHeight }]}>
-          {/* Grid lines */}
-          <View style={[styles.gridLine, { top: padding }]} />
-          <View style={[styles.gridLine, { top: padding + innerHeight / 2 }]} />
-          <View style={[styles.gridLine, { top: padding + innerHeight }]} />
-
-          {/* Data points and trend line simulation with View components */}
-          <View style={styles.chartLineContainer}>
-            {points.map((point, index) => (
-              <View key={index}>
-                {/* Line segment to next point */}
-                {index < points.length - 1 && (
-                  <View
-                    style={[
-                      styles.lineSegment,
-                      {
-                        left: point.x,
-                        top: point.y,
-                        width: Math.sqrt(
-                          Math.pow(points[index + 1].x - point.x, 2) +
-                          Math.pow(points[index + 1].y - point.y, 2)
-                        ),
-                        transform: [{
-                          rotate: `${Math.atan2(
-                            points[index + 1].y - point.y,
-                            points[index + 1].x - point.x
-                          )}rad`
-                        }]
-                      }
-                    ]}
-                  />
-                )}
-                {/* Data point */}
-                <View
-                  style={[
-                    styles.dataPoint,
-                    {
-                      left: point.x - 4,
-                      top: point.y - 4,
-                    }
-                  ]}
-                />
-              </View>
-            ))}
-          </View>
-        </View>
-      </View>
+      // @ts-ignore
+      <svg width={width} height={height} style={{ display: 'block' }}>
+        {/* Grid + Y labels */}
+        {[maxVal, mid, minVal].map((val, i) => {
+          const y = toY(val);
+          return (
+            // @ts-ignore
+            <g key={i}>
+              {/* @ts-ignore */}
+              <line x1={padL} y1={y} x2={width - padR} y2={y} stroke="#2a2a2a" strokeWidth="1" />
+              {/* @ts-ignore */}
+              <text x={padL - 6} y={y + 4} textAnchor="end" fontSize="10" fill={MUTED}>{val}{unit}</text>
+            </g>
+          );
+        })}
+        {/* Area */}
+        {/* @ts-ignore */}
+        <path d={areaPath} fill={color} fillOpacity="0.12" />
+        {/* Line */}
+        {/* @ts-ignore */}
+        <polyline points={polyPoints} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        {/* Dots */}
+        {points.map((p, i) => (
+          // @ts-ignore
+          <circle key={i} cx={p.x} cy={p.y} r="4" fill={color} stroke={CARD} strokeWidth="2" />
+        ))}
+        {/* X date labels */}
+        {dateLabels.map(i => (
+          // @ts-ignore
+          <text key={i} x={toX(i)} y={height - 6} textAnchor="middle" fontSize="10" fill={MUTED}>
+            {format(new Date(dates[i]), 'MMM d')}
+          </text>
+        ))}
+      </svg>
     );
   };
 
   if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3b82f6" />
-      </View>
-    );
+    return <View style={styles.loadingContainer}><ActivityIndicator size="large" color={GOLD} /></View>;
   }
 
-  const chartData = getChartData();
+  const sessions = getFilteredSessions();
+  const values = chartMode === 'weight' ? sessions.map((s: any) => s.bestWeight)
+    : chartMode === 'reps' ? sessions.map((s: any) => s.bestReps)
+    : sessions.map((s: any) => s.bestVolume);
+  const dates = sessions.map((s: any) => s.date);
   const records = getPersonalRecords();
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Hero Banner */}
       <Image source={logoBanner} style={styles.heroBanner} resizeMode="cover" />
-
-      {/* Back Button */}
-      <View style={styles.backButtonContainer}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="arrow-back" size={24} color="#1f2937" />
-          <Text style={styles.backButtonText}>Back</Text>
+      <View style={styles.backRow}>
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={24} color={WHITE} />
+          <Text style={styles.backText}>Back</Text>
         </TouchableOpacity>
       </View>
-
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Progress & Analytics</Text>
       </View>
 
-      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Overall Stats */}
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+
+        {/* Stats */}
         <View style={styles.statsGrid}>
-          <View style={styles.statCard}>
-            <Ionicons name="calendar" size={24} color="#3b82f6" />
-            <Text style={styles.statValue}>{stats.totalWorkouts}</Text>
-            <Text style={styles.statLabel}>Total Workouts</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="repeat" size={24} color="#10b981" />
-            <Text style={styles.statValue}>{stats.totalSets}</Text>
-            <Text style={styles.statLabel}>Total Sets</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="trending-up" size={24} color="#8b5cf6" />
-            <Text style={styles.statValue}>{stats.totalVolume.toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Total Volume (kg)</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Ionicons name="flash" size={24} color="#f59e0b" />
-            <Text style={styles.statValue}>{stats.avgWorkoutsPerWeek}</Text>
-            <Text style={styles.statLabel}>Avg/Week</Text>
-          </View>
+          {[
+            { icon: 'calendar', color: GOLD, value: stats.totalWorkouts, label: 'Workouts' },
+            { icon: 'repeat', color: GREEN, value: stats.totalSets, label: 'Total Sets' },
+            { icon: 'trending-up', color: PURPLE, value: stats.totalVolume.toLocaleString(), label: 'Volume (kg)' },
+            { icon: 'flash', color: '#f59e0b', value: stats.avgWorkoutsPerWeek, label: 'Avg/Week' },
+          ].map((s, i) => (
+            <View key={i} style={styles.statCard}>
+              <Ionicons name={s.icon as any} size={22} color={s.color} />
+              <Text style={styles.statValue}>{s.value}</Text>
+              <Text style={styles.statLabel}>{s.label}</Text>
+            </View>
+          ))}
         </View>
 
-        {/* Exercise Selector */}
+        {/* Exercise picker */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Select Exercise</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.exerciseTags}>
-            {exercises.map((exercise) => (
+          <Text style={styles.sectionTitle}>Exercise</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            {exercises.map((ex) => (
               <TouchableOpacity
-                key={exercise.name}
-                style={[
-                  styles.exerciseTag,
-                  selectedExercise === exercise.name && styles.exerciseTagActive,
-                ]}
-                onPress={() => setSelectedExercise(exercise.name)}
+                key={ex.name}
+                style={[styles.tag, selectedExercise === ex.name && styles.tagActive]}
+                onPress={() => setSelectedExercise(ex.name)}
               >
-                <Text
-                  style={[
-                    styles.exerciseTagText,
-                    selectedExercise === exercise.name && styles.exerciseTagTextActive,
-                  ]}
-                >
-                  {exercise.name}
-                </Text>
+                <Text style={[styles.tagText, selectedExercise === ex.name && styles.tagTextActive]}>{ex.name}</Text>
               </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
 
-        {/* Time Range Filter */}
-        <View style={styles.timeRangeContainer}>
-          {(['1m', '3m', '6m', '1y', 'all'] as TimeRange[]).map((range) => (
-            <TouchableOpacity
-              key={range}
-              style={[styles.timeRangeButton, timeRange === range && styles.timeRangeButtonActive]}
-              onPress={() => setTimeRange(range)}
-            >
-              <Text
-                style={[
-                  styles.timeRangeText,
-                  timeRange === range && styles.timeRangeTextActive,
-                ]}
-              >
-                {range === 'all' ? 'All' : range.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Personal Records */}
         {selectedExercise && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Personal Records</Text>
-            <View style={styles.recordsGrid}>
-              <View style={styles.recordCard}>
-                <Ionicons name="trophy" size={28} color="#f59e0b" />
-                <Text style={styles.recordValue}>{records.maxWeight} kg</Text>
-                <Text style={styles.recordLabel}>Max Weight</Text>
-              </View>
-              <View style={styles.recordCard}>
-                <Ionicons name="fitness" size={28} color="#10b981" />
-                <Text style={styles.recordValue}>{records.maxReps}</Text>
-                <Text style={styles.recordLabel}>Max Reps</Text>
-              </View>
-              <View style={styles.recordCard}>
-                <Ionicons name="bar-chart" size={28} color="#8b5cf6" />
-                <Text style={styles.recordValue}>{records.maxVolume} kg</Text>
-                <Text style={styles.recordLabel}>Max Volume</Text>
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* Weight Progress Chart */}
-        {selectedExercise && chartData.length > 0 && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Weight Progress</Text>
-            <View style={styles.chartContainer}>
-              {renderLineChart(chartData)}
-              <View style={styles.chartStats}>
-                <Text style={styles.chartStatText}>
-                  Min: {Math.min(...chartData)}kg
-                </Text>
-                <Text style={styles.chartStatText}>
-                  {chartData.length} sessions
-                </Text>
-                <Text style={styles.chartStatText}>
-                  Max: {Math.max(...chartData)}kg
-                </Text>
-              </View>
-            </View>
-            <Text style={styles.chartLabel}>Session progression over time</Text>
-          </View>
-        )}
-
-        {/* Recent Sessions */}
-        {selectedExercise && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Recent Sessions</Text>
-            {getFilteredData()
-              .slice(0, 10)
-              .map((session: any, index: number) => (
-                <View key={index} style={styles.sessionCard}>
-                  <Text style={styles.sessionDate}>{format(new Date(session.date), 'MMM d, yyyy')}</Text>
-                  <View style={styles.sessionStats}>
-                    <Text style={styles.sessionStat}>{session.weight} kg</Text>
-                    <Text style={styles.sessionSeparator}>×</Text>
-                    <Text style={styles.sessionStat}>{session.reps} reps</Text>
-                    <Text style={styles.sessionSeparator}>=</Text>
-                    <Text style={styles.sessionVolume}>{session.volume} kg</Text>
-                  </View>
-                </View>
+          <>
+            {/* Time range */}
+            <View style={styles.row}>
+              {(['1m', '3m', '6m', '1y', 'all'] as TimeRange[]).map((r) => (
+                <TouchableOpacity
+                  key={r}
+                  style={[styles.filterBtn, timeRange === r && styles.filterBtnActive]}
+                  onPress={() => setTimeRange(r)}
+                >
+                  <Text style={[styles.filterTxt, timeRange === r && styles.filterTxtActive]}>{r === 'all' ? 'All' : r.toUpperCase()}</Text>
+                </TouchableOpacity>
               ))}
-          </View>
+            </View>
+
+            {/* Personal bests */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Personal Bests</Text>
+              <View style={styles.pbRow}>
+                <View style={styles.pbCard}>
+                  <Ionicons name="trophy" size={22} color={GOLD} />
+                  <Text style={styles.pbValue}>{records.maxWeight} kg</Text>
+                  <Text style={styles.pbLabel}>Max Weight</Text>
+                </View>
+                <View style={styles.pbCard}>
+                  <Ionicons name="fitness" size={22} color={GREEN} />
+                  <Text style={styles.pbValue}>{records.maxReps}</Text>
+                  <Text style={styles.pbLabel}>Max Reps</Text>
+                </View>
+                <View style={styles.pbCard}>
+                  <Ionicons name="bar-chart" size={22} color={PURPLE} />
+                  <Text style={[styles.pbValue, { fontSize: 15 }]}>{records.maxVolume} kg</Text>
+                  <Text style={styles.pbLabel}>Max Volume</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Chart */}
+            <View style={styles.section}>
+              <View style={styles.chartHeaderRow}>
+                <Text style={styles.sectionTitle}>Progression</Text>
+                <View style={styles.toggle}>
+                  {([
+                    { key: 'weight' as ChartMode, label: 'Weight', color: GOLD },
+                    { key: 'reps' as ChartMode, label: 'Reps', color: GREEN },
+                    { key: 'volume' as ChartMode, label: 'Volume', color: PURPLE },
+                  ]).map(({ key, label, color }) => (
+                    <TouchableOpacity
+                      key={key}
+                      style={[styles.toggleBtn, chartMode === key && { backgroundColor: color, borderColor: color }]}
+                      onPress={() => setChartMode(key)}
+                    >
+                      <Text style={[styles.toggleTxt, chartMode === key && { color: BG }]}>{label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.chartCard}>
+                {renderSVGChart(values, dates)}
+                <View style={styles.chartFooter}>
+                  <Text style={styles.chartFooterTxt}>{sessions.length} session{sessions.length !== 1 ? 's' : ''} · best set per session</Text>
+                  {values.length > 1 && (
+                    <Text style={styles.chartFooterTxt}>{Math.min(...values)} → {Math.max(...values)}{chartMode === 'reps' ? ' reps' : ' kg'}</Text>
+                  )}
+                </View>
+              </View>
+            </View>
+
+            {/* History */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>History</Text>
+              <View style={styles.historyCard}>
+                {[...sessions].reverse().map((s: any, i: number) => (
+                  <View key={i} style={[styles.historyRow, i > 0 && styles.historyRowBorder]}>
+                    <Text style={styles.historyDate}>{format(new Date(s.date), 'dd MMM yyyy')}</Text>
+                    <View style={styles.historyStats}>
+                      <Text style={[styles.historyStat, { color: GOLD }]}>{s.bestWeight}kg</Text>
+                      <Text style={styles.historyX}>×</Text>
+                      <Text style={[styles.historyStat, { color: GREEN }]}>{s.bestReps}r</Text>
+                      <Text style={styles.historyX}>=</Text>
+                      <Text style={[styles.historyStat, { color: PURPLE }]}>{s.bestVolume}kg</Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </>
         )}
 
         {exercises.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="stats-chart-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyStateTitle}>No workout data yet</Text>
-            <Text style={styles.emptyStateText}>Start logging workouts to see your progress</Text>
+          <View style={styles.empty}>
+            <Ionicons name="stats-chart-outline" size={64} color={MUTED} />
+            <Text style={styles.emptyTitle}>No workout data yet</Text>
+            <Text style={styles.emptyText}>Start logging workouts to see your progress</Text>
           </View>
         )}
       </ScrollView>
@@ -414,315 +345,63 @@ const AnalyticsScreen: React.FC<AnalyticsScreenProps> = ({ navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F1F5F9',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F1F5F9',
-  },
-  header: {
-    backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-  },
-  heroBanner: {
-    width: '100%',
-    height: 160,
-  },
-  backButtonContainer: {
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
-  },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-  },
-  backButtonText: {
-    fontSize: 16,
-    color: '#1f2937',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    padding: 10,
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    margin: '1%',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 8,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  section: {
-    paddingHorizontal: 20,
-    marginTop: 24,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 12,
-  },
-  exerciseTags: {
-    flexDirection: 'row',
-  },
-  exerciseTag: {
-    backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 20,
-    marginRight: 8,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  exerciseTagActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
-  },
-  exerciseTagText: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  exerciseTagTextActive: {
-    color: 'white',
-  },
-  timeRangeContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginTop: 16,
-    gap: 8,
-  },
-  timeRangeButton: {
-    flex: 1,
-    paddingVertical: 8,
-    backgroundColor: 'white',
-    borderRadius: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-  },
-  timeRangeButtonActive: {
-    backgroundColor: '#3b82f6',
-    borderColor: '#3b82f6',
-  },
-  timeRangeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6b7280',
-  },
-  timeRangeTextActive: {
-    color: 'white',
-  },
-  recordsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  recordCard: {
-    flex: 1,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  recordValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 8,
-  },
-  recordLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  chartContainer: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  chartSvgContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  yAxisLabels: {
-    marginRight: 8,
-    justifyContent: 'space-between',
-    height: 180,
-    paddingVertical: 20,
-  },
-  axisLabel: {
-    fontSize: 10,
-    color: '#9ca3af',
-    fontWeight: '500',
-  },
-  chartCanvas: {
-    position: 'relative',
-    backgroundColor: '#f9fafb',
-    borderRadius: 8,
-  },
-  gridLine: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    height: 1,
-    backgroundColor: '#e5e7eb',
-  },
-  chartLineContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
-  lineSegment: {
-    position: 'absolute',
-    height: 3,
-    backgroundColor: '#3b82f6',
-    borderRadius: 2,
-  },
-  dataPoint: {
-    position: 'absolute',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#3b82f6',
-    borderWidth: 2,
-    borderColor: 'white',
-  },
-  chartStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
-  },
-  chartStatText: {
-    fontSize: 12,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  chartPlaceholder: {
-    fontSize: 32,
-    textAlign: 'center',
-    color: '#1f2937',
-  },
-  chartSubtext: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  chartLabel: {
-    fontSize: 12,
-    color: '#9ca3af',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  sessionCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sessionDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1f2937',
-  },
-  sessionStats: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sessionStat: {
-    fontSize: 14,
-    color: '#6b7280',
-    fontWeight: '500',
-  },
-  sessionSeparator: {
-    fontSize: 14,
-    color: '#d1d5db',
-    marginHorizontal: 6,
-  },
-  sessionVolume: {
-    fontSize: 14,
-    color: '#3b82f6',
-    fontWeight: '600',
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 64,
-    paddingHorizontal: 32,
-  },
-  emptyStateTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#9ca3af',
-    marginTop: 16,
-  },
-  emptyStateText: {
-    fontSize: 14,
-    color: '#d1d5db',
-    marginTop: 8,
-    textAlign: 'center',
-  },
+  container: { flex: 1, backgroundColor: BG },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: BG },
+  heroBanner: { width: '100%', height: 140 },
+  backRow: { backgroundColor: CARD, borderBottomWidth: 1, borderBottomColor: BORDER },
+  backButton: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 12 },
+  backText: { fontSize: 16, color: WHITE, marginLeft: 8, fontWeight: '500' },
+  header: { backgroundColor: CARD, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: BORDER },
+  headerTitle: { fontSize: 22, fontWeight: 'bold', color: WHITE },
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 40, maxWidth: 800, width: '100%', alignSelf: 'center' },
+
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 8 },
+  statCard: { flex: 1, minWidth: '45%', backgroundColor: CARD, borderRadius: 12, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: BORDER },
+  statValue: { fontSize: 24, fontWeight: 'bold', color: WHITE, marginTop: 8 },
+  statLabel: { fontSize: 11, color: MUTED, marginTop: 4, textAlign: 'center' },
+
+  section: { paddingHorizontal: 16, marginTop: 20 },
+  sectionTitle: { fontSize: 17, fontWeight: 'bold', color: WHITE, marginBottom: 12 },
+
+  tag: { backgroundColor: CARD, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: BORDER },
+  tagActive: { backgroundColor: GOLD, borderColor: GOLD },
+  tagText: { fontSize: 13, color: MUTED, fontWeight: '500' },
+  tagTextActive: { color: BG },
+
+  row: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 12, gap: 6 },
+  filterBtn: { flex: 1, paddingVertical: 7, backgroundColor: CARD, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: BORDER },
+  filterBtnActive: { backgroundColor: GOLD, borderColor: GOLD },
+  filterTxt: { fontSize: 12, fontWeight: '600', color: MUTED },
+  filterTxtActive: { color: BG },
+
+  pbRow: { flexDirection: 'row', gap: 10 },
+  pbCard: { flex: 1, backgroundColor: CARD, borderRadius: 12, padding: 14, alignItems: 'center', borderWidth: 1, borderColor: BORDER },
+  pbValue: { fontSize: 18, fontWeight: 'bold', color: WHITE, marginTop: 6 },
+  pbLabel: { fontSize: 11, color: MUTED, marginTop: 4, textAlign: 'center' },
+
+  chartHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  toggle: { flexDirection: 'row', gap: 6 },
+  toggleBtn: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: BORDER, backgroundColor: CARD },
+  toggleTxt: { fontSize: 12, fontWeight: '600', color: MUTED },
+
+  chartCard: { backgroundColor: CARD, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: BORDER },
+  chartEmpty: { height: 80, justifyContent: 'center', alignItems: 'center' },
+  chartEmptyText: { color: MUTED, fontSize: 13 },
+  chartFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: BORDER },
+  chartFooterTxt: { fontSize: 11, color: MUTED },
+
+  historyCard: { backgroundColor: CARD, borderRadius: 12, borderWidth: 1, borderColor: BORDER, overflow: 'hidden' },
+  historyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12 },
+  historyRowBorder: { borderTopWidth: 1, borderTopColor: BORDER },
+  historyDate: { fontSize: 13, color: WHITE, fontWeight: '500' },
+  historyStats: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  historyStat: { fontSize: 13, fontWeight: '600' },
+  historyX: { fontSize: 12, color: MUTED },
+
+  empty: { alignItems: 'center', paddingVertical: 64, paddingHorizontal: 32 },
+  emptyTitle: { fontSize: 18, fontWeight: '600', color: MUTED, marginTop: 16 },
+  emptyText: { fontSize: 14, color: BORDER, marginTop: 8, textAlign: 'center' },
 });
 
 export default AnalyticsScreen;

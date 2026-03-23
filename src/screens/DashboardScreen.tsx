@@ -22,7 +22,7 @@ import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 import { useFocusEffect } from '@react-navigation/native';
 
 // Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 // Import custom action icons
 const bookSessionIcon = require('../../BookSession-SchedulePT.png');

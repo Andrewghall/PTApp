@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { db, supabase, auth } from '../lib/supabase';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface ProfileScreenProps {
   navigation: any;

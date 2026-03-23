@@ -19,7 +19,7 @@ import { format } from 'date-fns';
 import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
 // Import the logo banner image
-const logoBanner = require('../../logo banner.png');
+const logoBanner = require('../../logo_banner.png');
 
 interface MessagingScreenProps {
   navigation: any;
