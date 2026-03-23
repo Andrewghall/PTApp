@@ -14,9 +14,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase, db, auth } from '../lib/supabase';
 import { format, addDays, setHours, setMinutes } from 'date-fns';
-import { HamburgerButton, HamburgerMenu } from '../components/HamburgerMenu';
 
-// Brand colors
 const COLORS = {
   BG_DARK: '#0a0a0a',
   BG_CARD: '#141414',
@@ -27,16 +25,19 @@ const COLORS = {
   TEXT_MUTED: '#9ca3af',
   GREEN: '#10b981',
   RED: '#ef4444',
-  OVERLAY: 'rgba(0, 0, 0, 0.8)',
+  OVERLAY: 'rgba(0, 0, 0, 0.85)',
 };
+
+type TabKey = 'today' | 'schedule' | 'clients' | 'pricing' | 'settings';
 
 interface AdminScreenProps {
   navigation: any;
+  onLogout?: () => void;
 }
 
-const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
+const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'schedule' | 'clients' | 'packs' | 'attendance' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<TabKey>('today');
   const [todayBookings, setTodayBookings] = useState<any[]>([]);
   const [appSettings, setAppSettings] = useState<any>({});
   const [settingsForm, setSettingsForm] = useState({ lowCreditThreshold: '', cancellationWindowHours: '' });
@@ -44,16 +45,12 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [clients, setClients] = useState<any[]>([]);
   const [slots, setSlots] = useState<any[]>([]);
   const [creditPacks, setCreditPacks] = useState<any[]>([]);
-  const [showAddSlotModal, setShowAddSlotModal] = useState(false);
   const [showAddPackModal, setShowAddPackModal] = useState(false);
   const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [businessMetrics, setBusinessMetrics] = useState<any>(null);
   const [newPack, setNewPack] = useState({ credits: '', price: '', discount: '' });
   const [creating, setCreating] = useState(false);
-  const [showMenu, setShowMenu] = useState(false);
   const [showAdjustCreditsModal, setShowAdjustCreditsModal] = useState(false);
   const [adjustCreditsAmount, setAdjustCreditsAmount] = useState('');
-  const [menuVisible, setMenuVisible] = useState(false);
   const [showEditPackModal, setShowEditPackModal] = useState(false);
   const [selectedPack, setSelectedPack] = useState<any>(null);
   const [editPackForm, setEditPackForm] = useState({ credits: '', price: '', discount: '' });
@@ -75,16 +72,15 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
   const [selectedSlot, setSelectedSlot] = useState<any>(null);
   const [slotForm, setSlotForm] = useState({ startTime: '', endTime: '', capacity: '' });
 
+  // Create weekly slots weeks picker
+  const [showWeeksModal, setShowWeeksModal] = useState(false);
+
   useEffect(() => {
     loadAdminData();
   }, []);
 
   const loadAdminData = async () => {
     try {
-      // Load business metrics for overview
-      const { data: metrics } = await db.getBusinessMetrics();
-      setBusinessMetrics(metrics);
-
       // Load all clients (exclude admins)
       const { data: clientsData } = await supabase
         .from('client_profiles')
@@ -181,64 +177,51 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     }
   };
 
-  const createWeeklySlots = async () => {
-    Alert.alert(
-      'Create Weekly Schedule',
-      'This will create slots for the next 4 weeks. Continue?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Create',
-          onPress: async () => {
-            try {
-              const slotsToCreate = [];
-              const startDate = new Date();
+  const createWeeklySlots = async (numWeeks: number) => {
+    setShowWeeksModal(false);
+    try {
+      const slotsToCreate = [];
+      const startDate = new Date();
 
-              // Create slots for 4 weeks (Mon-Fri)
-              for (let week = 0; week < 4; week++) {
-                for (let day = 0; day < 5; day++) {
-                  // Mon-Fri
-                  const slotDate = addDays(startDate, week * 7 + day);
-                  if (slotDate.getDay() === 0 || slotDate.getDay() === 6) continue; // Skip weekends
+      for (let week = 0; week < numWeeks; week++) {
+        for (let day = 0; day < 7; day++) {
+          const slotDate = addDays(startDate, week * 7 + day);
+          if (slotDate.getDay() === 0 || slotDate.getDay() === 6) continue;
 
-                  // Morning session: 7:30-9:30
-                  const morningStart = setMinutes(setHours(slotDate, 7), 30);
-                  const morningEnd = setMinutes(setHours(slotDate, 9), 30);
-                  slotsToCreate.push({
-                    start_time: morningStart.toISOString(),
-                    end_time: morningEnd.toISOString(),
-                    capacity: 6,
-                    booked_count: 0,
-                    status: 'available',
-                    location: 'Elevate Gym',
-                  });
+          // Morning session: 7:30-9:30
+          const morningStart = setMinutes(setHours(slotDate, 7), 30);
+          const morningEnd = setMinutes(setHours(slotDate, 9), 30);
+          slotsToCreate.push({
+            start_time: morningStart.toISOString(),
+            end_time: morningEnd.toISOString(),
+            capacity: 6,
+            booked_count: 0,
+            status: 'available',
+            location: 'Elevate Gym',
+          });
 
-                  // Late morning session: 9:30-11:30
-                  const lateStart = setMinutes(setHours(slotDate, 9), 30);
-                  const lateEnd = setMinutes(setHours(slotDate, 11), 30);
-                  slotsToCreate.push({
-                    start_time: lateStart.toISOString(),
-                    end_time: lateEnd.toISOString(),
-                    capacity: 6,
-                    booked_count: 0,
-                    status: 'available',
-                    location: 'Elevate Gym',
-                  });
-                }
-              }
+          // Late morning session: 9:30-11:30
+          const lateStart = setMinutes(setHours(slotDate, 9), 30);
+          const lateEnd = setMinutes(setHours(slotDate, 11), 30);
+          slotsToCreate.push({
+            start_time: lateStart.toISOString(),
+            end_time: lateEnd.toISOString(),
+            capacity: 6,
+            booked_count: 0,
+            status: 'available',
+            location: 'Elevate Gym',
+          });
+        }
+      }
 
-              const { error } = await supabase.from('slots').insert(slotsToCreate);
-              if (error) throw error;
+      const { error } = await supabase.from('slots').insert(slotsToCreate);
+      if (error) throw error;
 
-              Alert.alert('Success', `Created ${slotsToCreate.length} slots`);
-              loadAdminData();
-            } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to create slots');
-            }
-          },
-        },
-      ]
-    );
+      Alert.alert('Success', `Created ${slotsToCreate.length} slots for ${numWeeks} weeks`);
+      loadAdminData();
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to create slots');
+    }
   };
 
   const adjustClientCredits = (client: any) => {
@@ -260,7 +243,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       if (amount > 0) {
         await db.addCredits(selectedClient.id, amount, `Admin adjustment: +${amount}`);
       } else {
-        // Subtract credits
         const { data: bal } = await supabase
           .from('credit_balances')
           .select('balance')
@@ -300,7 +282,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     try {
       const { error } = await db.createCreditPack(
         parseInt(newPack.credits),
-        parseFloat(newPack.price) * 100, // Convert euros to cents
+        parseFloat(newPack.price) * 100,
         parseFloat(newPack.discount || '0')
       );
 
@@ -309,7 +291,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       Alert.alert('Success', 'Credit pack created!');
       setShowAddPackModal(false);
       setNewPack({ credits: '', price: '', discount: '' });
-      await loadAdminData(); // Refresh packs list
+      await loadAdminData();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to create pack');
     } finally {
@@ -321,8 +303,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     setSelectedPack(pack);
     setEditPackForm({
       credits: pack.credits.toString(),
-      price: (pack.price / 100).toString(), // Convert cents to euros for display
-      discount: pack.discount_percent?.toString() || '0'
+      price: (pack.price / 100).toString(),
+      discount: pack.discount_percent?.toString() || '0',
     });
     setShowEditPackModal(true);
   };
@@ -339,8 +321,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         .from('credit_packs')
         .update({
           credits: parseInt(editPackForm.credits),
-          price: parseFloat(editPackForm.price) * 100, // Convert euros to cents
-          discount_percent: parseFloat(editPackForm.discount || '0')
+          price: parseFloat(editPackForm.price) * 100,
+          discount_percent: parseFloat(editPackForm.discount || '0'),
         })
         .eq('id', selectedPack.id);
 
@@ -350,7 +332,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
       setShowEditPackModal(false);
       setSelectedPack(null);
       setEditPackForm({ credits: '', price: '', discount: '' });
-      await loadAdminData(); // Refresh packs list
+      await loadAdminData();
     } catch (error: any) {
       Alert.alert('Error', error.message || 'Failed to update pack');
     } finally {
@@ -358,13 +340,12 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     }
   };
 
-  // Slot management handlers
   const handleEditSlot = (slot: any) => {
     setSelectedSlot(slot);
     setSlotForm({
       startTime: format(new Date(slot.start_time), 'yyyy-MM-dd\'T\'HH:mm'),
       endTime: format(new Date(slot.end_time), 'yyyy-MM-dd\'T\'HH:mm'),
-      capacity: slot.capacity.toString()
+      capacity: slot.capacity.toString(),
     });
     setShowSlotModal(true);
   };
@@ -384,7 +365,6 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         if (error) throw error;
       }
 
-      // Check if times changed for reschedule
       const newStartTime = new Date(slotForm.startTime).toISOString();
       const newEndTime = new Date(slotForm.endTime).toISOString();
 
@@ -421,8 +401,8 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             } catch (error: any) {
               Alert.alert('Error', error.message || 'Failed to delete slot');
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
@@ -462,6 +442,25 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     }
   };
 
+  const handleLogout = async () => {
+    await auth.signOut();
+    if (onLogout) {
+      onLogout();
+    } else {
+      navigation.navigate('Login');
+    }
+  };
+
+  // Group today's bookings by time slot
+  const groupedBookings = todayBookings.reduce((groups: any, booking: any) => {
+    const timeKey = booking.slots?.start_time
+      ? `${format(new Date(booking.slots.start_time), 'HH:mm')} - ${format(new Date(booking.slots.end_time), 'HH:mm')}`
+      : 'Unknown';
+    if (!groups[timeKey]) groups[timeKey] = [];
+    groups[timeKey].push(booking);
+    return groups;
+  }, {});
+
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
@@ -470,227 +469,152 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
     );
   }
 
-  const getActiveTabTitle = () => {
-    switch (activeTab) {
-      case 'overview': return 'Overview';
-      case 'schedule': return 'Schedule';
-      case 'clients': return 'Clients';
-      case 'packs': return 'Pricing';
-      case 'attendance': return 'Attendance';
-      case 'settings': return 'Settings';
-      default: return 'Admin Portal';
-    }
-  };
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: 'today', label: 'Today' },
+    { key: 'schedule', label: 'Schedule' },
+    { key: 'clients', label: 'Clients' },
+    { key: 'pricing', label: 'Pricing' },
+    { key: 'settings', label: 'Settings' },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header - clean, no banner */}
-      <View style={styles.headerContainer}>
-        <HamburgerButton onPress={() => setMenuVisible(true)} />
-        <View style={styles.headerTextContainer}>
-          <Text style={styles.headerTitle}>Admin Portal</Text>
-        </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Elevate Gym Admin</Text>
+        <TouchableOpacity onPress={handleLogout}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Tab Bar - Compact, sticky */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'overview' && styles.tabActive]}
-          onPress={() => setActiveTab('overview')}
-        >
-          <Ionicons name="stats-chart" size={16} color={activeTab === 'overview' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'overview' && styles.tabTextActive]}>Overview</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'schedule' && styles.tabActive]}
-          onPress={() => setActiveTab('schedule')}
-        >
-          <Ionicons name="calendar" size={16} color={activeTab === 'schedule' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'schedule' && styles.tabTextActive]}>Schedule</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'clients' && styles.tabActive]}
-          onPress={() => setActiveTab('clients')}
-        >
-          <Ionicons name="people" size={16} color={activeTab === 'clients' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'clients' && styles.tabTextActive]}>Clients</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'packs' && styles.tabActive]}
-          onPress={() => setActiveTab('packs')}
-        >
-          <Ionicons name="pricetag" size={16} color={activeTab === 'packs' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'packs' && styles.tabTextActive]}>Pricing</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'attendance' && styles.tabActive]}
-          onPress={() => setActiveTab('attendance')}
-        >
-          <Ionicons name="checkmark-circle" size={16} color={activeTab === 'attendance' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'attendance' && styles.tabTextActive]}>Attendance</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'settings' && styles.tabActive]}
-          onPress={() => setActiveTab('settings')}
-        >
-          <Ionicons name="cog" size={16} color={activeTab === 'settings' ? COLORS.GOLD : COLORS.TEXT_MUTED} />
-          <Text style={[styles.tabText, activeTab === 'settings' && styles.tabTextActive]}>Settings</Text>
-        </TouchableOpacity>
+      {/* Tab Bar */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabBar} contentContainerStyle={styles.tabBarContent}>
+        {tabs.map((tab) => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[styles.tab, activeTab === tab.key && styles.tabActive]}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>
+              {tab.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </ScrollView>
 
+      {/* Content */}
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        {/* Overview Tab */}
-        {activeTab === 'overview' && (
-          <>
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Business Overview</Text>
-              <Text style={styles.sectionSubtitle}>Key performance indicators</Text>
 
-              {businessMetrics ? (
-                <>
-                  {/* KPI Grid */}
-                  <View style={styles.kpiGrid}>
-                    {/* Total Clients */}
-                    <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(200, 169, 78, 0.15)' }]}>
-                        <Ionicons name="people" size={28} color={COLORS.GOLD} />
+        {/* Today Tab */}
+        {activeTab === 'today' && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Today's Bookings</Text>
+            <Text style={styles.sectionSubtitle}>
+              {format(new Date(), 'EEEE, MMMM d, yyyy')}
+            </Text>
+
+            {todayBookings.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="calendar-outline" size={48} color={COLORS.TEXT_MUTED} />
+                <Text style={styles.emptyStateText}>No sessions scheduled for today</Text>
+              </View>
+            ) : (
+              Object.entries(groupedBookings).map(([timeSlot, bookings]: [string, any]) => (
+                <View key={timeSlot} style={styles.timeSlotGroup}>
+                  <Text style={styles.timeSlotHeader}>{timeSlot}</Text>
+                  {bookings.map((booking: any) => (
+                    <View key={booking.id} style={styles.bookingCard}>
+                      <View style={styles.bookingInfo}>
+                        <Text style={styles.bookingName}>
+                          {booking.client_profiles?.first_name} {booking.client_profiles?.last_name}
+                        </Text>
+                        <Text style={styles.bookingStatus}>
+                          {booking.status === 'attended' ? 'Attended' : booking.status === 'no_show' ? 'No Show' : 'Booked'}
+                        </Text>
                       </View>
-                      <Text style={styles.kpiValue}>{businessMetrics.totalClients || 0}</Text>
-                      <Text style={styles.kpiLabel}>Total Clients</Text>
+                      {booking.status === 'confirmed' || booking.status === 'booked' ? (
+                        <View style={styles.bookingActions}>
+                          <TouchableOpacity
+                            style={styles.attendedButton}
+                            onPress={() => handleMarkAttended(booking.id)}
+                          >
+                            <Text style={styles.attendedButtonText}>Attended</Text>
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.noShowButton}
+                            onPress={() => handleMarkNoShow(booking.id)}
+                          >
+                            <Text style={styles.noShowButtonText}>No-Show</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ) : (
+                        <View style={[
+                          styles.statusBadge,
+                          booking.status === 'attended' ? styles.statusAttended : styles.statusNoShow,
+                        ]}>
+                          <Text style={styles.statusBadgeText}>
+                            {booking.status === 'attended' ? 'Attended' : 'No Show'}
+                          </Text>
+                        </View>
+                      )}
                     </View>
-
-                    {/* Monthly Revenue */}
-                    <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(16, 185, 129, 0.15)' }]}>
-                        <Ionicons name="wallet" size={28} color={COLORS.GREEN} />
-                      </View>
-                      <Text style={styles.kpiValue}>{'\u20AC'}{businessMetrics.monthlyRevenue || 0}</Text>
-                      <Text style={styles.kpiLabel}>Monthly Revenue</Text>
-                    </View>
-
-                    {/* Attendance Rate */}
-                    <View style={styles.kpiCard}>
-                      <View style={[styles.kpiIconContainer, { backgroundColor: 'rgba(200, 169, 78, 0.15)' }]}>
-                        <Ionicons name="checkmark-circle" size={28} color={COLORS.GOLD} />
-                      </View>
-                      <Text style={styles.kpiValue}>{businessMetrics.attendanceRate || 0}%</Text>
-                      <Text style={styles.kpiLabel}>Attendance Rate</Text>
-                    </View>
-
-                  </View>
-
-                  {/* Block Bookings Button */}
-                  <TouchableOpacity
-                    style={styles.blockBookingsButton}
-                    onPress={() => navigation.navigate('BlockBookings')}
-                  >
-                    <Ionicons name="repeat" size={24} color={COLORS.BG_DARK} />
-                    <Text style={styles.blockBookingsButtonText}>Manage Block Bookings</Text>
-                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
-                  </TouchableOpacity>
-
-                  {/* Programme Assignments Button */}
-                  <TouchableOpacity
-                    style={[styles.blockBookingsButton, { backgroundColor: COLORS.GOLD_DIM }]}
-                    onPress={() => navigation.navigate('ProgrammeAssignments')}
-                  >
-                    <Ionicons name="fitness" size={24} color={COLORS.BG_DARK} />
-                    <Text style={styles.blockBookingsButtonText}>Programme Assignments</Text>
-                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
-                  </TouchableOpacity>
-
-                  {/* Client Messages Button */}
-                  <TouchableOpacity
-                    style={[styles.blockBookingsButton, { backgroundColor: COLORS.GREEN }]}
-                    onPress={() => navigation.navigate('Messages')}
-                  >
-                    <Ionicons name="chatbubbles" size={24} color={COLORS.BG_DARK} />
-                    <Text style={styles.blockBookingsButtonText}>Client Messages</Text>
-                    <Ionicons name="chevron-forward" size={20} color={COLORS.BG_DARK} />
-                  </TouchableOpacity>
-
-                  {/* Quick Stats */}
-                  <View style={styles.quickStatsContainer}>
-                    <Text style={styles.quickStatsTitle}>Quick Stats</Text>
-
-                    <View style={styles.quickStatRow}>
-                      <Ionicons name="calendar-outline" size={20} color={COLORS.TEXT_MUTED} />
-                      <Text style={styles.quickStatLabel}>Upcoming Sessions</Text>
-                      <Text style={styles.quickStatValue}>{slots.length}</Text>
-                    </View>
-
-                    <View style={styles.quickStatRow}>
-                      <Ionicons name="person-outline" size={20} color={COLORS.TEXT_MUTED} />
-                      <Text style={styles.quickStatLabel}>Active Clients</Text>
-                      <Text style={styles.quickStatValue}>{clients.length}</Text>
-                    </View>
-
-                    <View style={styles.quickStatRow}>
-                      <Ionicons name="trending-up-outline" size={20} color={COLORS.TEXT_MUTED} />
-                      <Text style={styles.quickStatLabel}>Session Capacity</Text>
-                      <Text style={styles.quickStatValue}>
-                        {slots.reduce((sum, s) => sum + s.booked_count, 0)}/
-                        {slots.reduce((sum, s) => sum + s.capacity, 0)}
-                      </Text>
-                    </View>
-                  </View>
-
-                </>
-              ) : (
-                <View style={styles.emptyMetrics}>
-                  <ActivityIndicator size="large" color={COLORS.GOLD} />
-                  <Text style={styles.emptyMetricsText}>Loading metrics...</Text>
+                  ))}
                 </View>
-              )}
-            </View>
-          </>
+              ))
+            )}
+          </View>
         )}
 
         {/* Schedule Tab */}
         {activeTab === 'schedule' && (
           <>
-            <View style={styles.actionBar}>
-              <TouchableOpacity style={styles.primaryButton} onPress={createWeeklySlots}>
-                <Ionicons name="add-circle" size={20} color={COLORS.BG_DARK} />
-                <Text style={styles.primaryButtonText}>Create Weekly Slots</Text>
+            <View style={styles.section}>
+              <TouchableOpacity style={styles.goldButton} onPress={() => setShowWeeksModal(true)}>
+                <Text style={styles.goldButtonText}>Create Weekly Slots</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Upcoming Sessions ({slots.length})</Text>
-              {slots.map((slot) => (
-                <View key={slot.id} style={styles.slotCard}>
-                  <View style={styles.slotInfo}>
-                    <Text style={styles.slotDate}>
-                      {format(new Date(slot.start_time), 'EEE, MMM d')}
-                    </Text>
-                    <Text style={styles.slotTime}>
-                      {format(new Date(slot.start_time), 'h:mm a')} -{' '}
-                      {format(new Date(slot.end_time), 'h:mm a')}
-                    </Text>
-                  </View>
-                  <View style={styles.slotStats}>
-                    <Text style={styles.slotBooked}>
-                      {slot.booked_count}/{slot.capacity}
-                    </Text>
-                    <Text style={styles.slotLabel}>booked</Text>
-                  </View>
-                  <View style={styles.slotActions}>
-                    <TouchableOpacity
-                      onPress={() => handleEditSlot(slot)}
-                      style={styles.slotActionButtonEdit}
-                    >
-                      <Text style={styles.slotActionButtonEditText}>Edit</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => handleDeleteSlot(slot)}
-                      style={styles.slotActionButtonDelete}
-                    >
-                      <Text style={styles.slotActionButtonDeleteText}>Delete</Text>
-                    </TouchableOpacity>
-                  </View>
+              {slots.length === 0 ? (
+                <View style={styles.emptyState}>
+                  <Ionicons name="calendar-outline" size={48} color={COLORS.TEXT_MUTED} />
+                  <Text style={styles.emptyStateText}>No upcoming sessions</Text>
                 </View>
-              ))}
+              ) : (
+                slots.map((slot) => (
+                  <View key={slot.id} style={styles.slotCard}>
+                    <View style={styles.slotInfo}>
+                      <Text style={styles.slotDate}>
+                        {format(new Date(slot.start_time), 'EEE, MMM d')}
+                      </Text>
+                      <Text style={styles.slotTime}>
+                        {format(new Date(slot.start_time), 'h:mm a')} - {format(new Date(slot.end_time), 'h:mm a')}
+                      </Text>
+                    </View>
+                    <View style={styles.slotStats}>
+                      <Text style={styles.slotBooked}>
+                        {slot.booked_count}/{slot.capacity}
+                      </Text>
+                      <Text style={styles.slotLabel}>booked</Text>
+                    </View>
+                    <View style={styles.slotActions}>
+                      <TouchableOpacity
+                        onPress={() => handleEditSlot(slot)}
+                        style={styles.outlineButtonGold}
+                      >
+                        <Text style={styles.outlineButtonGoldText}>Edit</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleDeleteSlot(slot)}
+                        style={styles.outlineButtonRed}
+                      >
+                        <Text style={styles.outlineButtonRedText}>Delete</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))
+              )}
             </View>
           </>
         )}
@@ -698,60 +622,67 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         {/* Clients Tab */}
         {activeTab === 'clients' && (
           <View style={styles.section}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={styles.sectionTitle}>All Clients ({clients.length})</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Clients ({clients.length})</Text>
               <TouchableOpacity
-                style={styles.primaryButton}
+                style={styles.goldButtonSmall}
                 onPress={() => setShowAddClientModal(true)}
               >
-                <Ionicons name="person-add" size={18} color={COLORS.BG_DARK} />
-                <Text style={styles.primaryButtonText}>Add Client</Text>
+                <Text style={styles.goldButtonSmallText}>Add Client</Text>
               </TouchableOpacity>
             </View>
-            {clients.map((client) => (
-              <View key={client.id} style={styles.clientCard}>
-                <View style={styles.clientInfo}>
-                  <Text style={styles.clientName}>
-                    {client.first_name} {client.last_name}
-                  </Text>
-                  <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
-                  <View style={styles.clientCredits}>
-                    <Ionicons name="wallet" size={16} color={(client.credit_balances?.balance || 0) <= 2 ? COLORS.RED : COLORS.GOLD} />
-                    <Text style={[
-                      styles.clientCreditsText,
-                      (client.credit_balances?.balance || 0) <= 2 && { color: COLORS.RED, fontWeight: "600" }
-                    ]}>
-                      {client.credit_balances?.balance || 0} credits
-                      {(client.credit_balances?.balance || 0) <= 2 && " !!!"}
+            {clients.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="people-outline" size={48} color={COLORS.TEXT_MUTED} />
+                <Text style={styles.emptyStateText}>No clients yet</Text>
+              </View>
+            ) : (
+              clients.map((client) => (
+                <View key={client.id} style={styles.clientCard}>
+                  <View style={styles.clientInfo}>
+                    <Text style={styles.clientName}>
+                      {client.first_name} {client.last_name}
                     </Text>
+                    <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
+                    <View style={styles.clientCredits}>
+                      <Ionicons
+                        name="wallet"
+                        size={14}
+                        color={(client.credit_balances?.balance || 0) <= 2 ? COLORS.RED : COLORS.GOLD}
+                      />
+                      <Text style={[
+                        styles.clientCreditsText,
+                        (client.credit_balances?.balance || 0) <= 2 && styles.clientCreditsLow,
+                      ]}>
+                        {client.credit_balances?.balance || 0} credits
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.clientActions}>
+                    <TouchableOpacity
+                      style={styles.outlineButtonWhite}
+                      onPress={() => navigation.navigate('ClientDetails', { clientId: client.id })}
+                    >
+                      <Text style={styles.outlineButtonWhiteText}>View Details</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.outlineButtonGold}
+                      onPress={() => adjustClientCredits(client)}
+                    >
+                      <Text style={styles.outlineButtonGoldText}>Adjust Credits</Text>
+                    </TouchableOpacity>
                   </View>
                 </View>
-                <View style={styles.clientActions}>
-                  <TouchableOpacity
-                    style={styles.viewDetailsButton}
-                    onPress={() => navigation.navigate('ClientDetails', { clientId: client.id })}
-                  >
-                    <Text style={styles.viewDetailsButtonText}>View Details</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.adjustButton}
-                    onPress={() => adjustClientCredits(client)}
-                  >
-                    <Text style={styles.adjustButtonText}>Adjust Credits</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+              ))
+            )}
           </View>
         )}
 
         {/* Pricing Tab */}
-        {activeTab === 'packs' && (
+        {activeTab === 'pricing' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Credit Packs</Text>
-            <Text style={styles.sectionSubtitle}>
-              Configure pricing without code changes
-            </Text>
+            <Text style={styles.sectionSubtitle}>Configure pricing without code changes</Text>
 
             {creditPacks.map((pack) => (
               <View key={pack.id} style={styles.packCard}>
@@ -763,68 +694,25 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                   )}
                 </View>
                 <View style={styles.packActions}>
-                  <Text style={styles.packPerCredit}>{'\u20AC'}25/session</Text>
+                  <Text style={styles.packPerCredit}>
+                    {'\u20AC'}{(pack.price / 100 / pack.credits).toFixed(0)}/session
+                  </Text>
                   <TouchableOpacity
-                    style={styles.editPackButton}
+                    style={styles.outlineButtonGold}
                     onPress={() => handleEditPack(pack)}
                   >
-                    <Text style={styles.editPackButtonText}>Edit</Text>
+                    <Text style={styles.outlineButtonGoldText}>Edit</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             ))}
 
             <TouchableOpacity
-              style={styles.addPackButton}
+              style={styles.dashedButton}
               onPress={() => setShowAddPackModal(true)}
             >
-              <Ionicons name="add-circle-outline" size={20} color={COLORS.GOLD} />
-              <Text style={styles.addPackText}>Add New Pack</Text>
+              <Text style={styles.dashedButtonText}>Add New Pack</Text>
             </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Attendance Tab */}
-        {activeTab === 'attendance' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Today's Sessions</Text>
-            <Text style={styles.sectionSubtitle}>
-              Confirm who attended today's sessions
-            </Text>
-
-            {todayBookings.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Ionicons name="calendar-outline" size={48} color={COLORS.TEXT_MUTED} />
-                <Text style={styles.emptyStateText}>No sessions scheduled for today</Text>
-              </View>
-            ) : (
-              todayBookings.map((booking: any) => (
-                <View key={booking.id} style={styles.attendanceCard}>
-                  <View style={styles.attendanceInfo}>
-                    <Text style={styles.attendanceName}>
-                      {booking.client_profiles?.first_name} {booking.client_profiles?.last_name}
-                    </Text>
-                    <Text style={styles.attendanceTime}>
-                      {booking.slots?.start_time ? format(new Date(booking.slots.start_time), 'HH:mm') : ''} - {booking.slots?.end_time ? format(new Date(booking.slots.end_time), 'HH:mm') : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.attendanceActions}>
-                    <TouchableOpacity
-                      style={styles.attendedButton}
-                      onPress={() => handleMarkAttended(booking.id)}
-                    >
-                      <Ionicons name="checkmark" size={20} color="white" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.noShowButton}
-                      onPress={() => handleMarkNoShow(booking.id)}
-                    >
-                      <Ionicons name="close" size={20} color="white" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
-            )}
           </View>
         )}
 
@@ -832,9 +720,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
         {activeTab === 'settings' && (
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>App Settings</Text>
-            <Text style={styles.sectionSubtitle}>
-              Configure app behaviour
-            </Text>
+            <Text style={styles.sectionSubtitle}>Configure app behaviour</Text>
 
             <View style={styles.settingCard}>
               <Text style={styles.settingLabel}>Low Credit Threshold</Text>
@@ -842,7 +728,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 Users will be prompted to buy more sessions when their balance drops to this number or below
               </Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 2"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
@@ -857,7 +743,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 Clients must cancel at least this many hours before the session to keep their credit
               </Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 48"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
@@ -867,19 +753,46 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             </View>
 
             <TouchableOpacity
-              style={[styles.modalCreateButton, savingSettings && styles.buyButtonDisabled]}
+              style={[styles.goldButton, savingSettings && styles.buttonDisabled]}
               onPress={handleSaveSettings}
               disabled={savingSettings}
             >
               {savingSettings ? (
                 <ActivityIndicator color={COLORS.BG_DARK} />
               ) : (
-                <Text style={styles.modalCreateButtonText}>Save Settings</Text>
+                <Text style={styles.goldButtonText}>Save Settings</Text>
               )}
             </TouchableOpacity>
           </View>
         )}
       </ScrollView>
+
+      {/* Weeks Picker Modal */}
+      <Modal visible={showWeeksModal} animationType="fade" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Create Weekly Slots</Text>
+              <TouchableOpacity onPress={() => setShowWeeksModal(false)}>
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalBody}>
+              <Text style={styles.inputLabel}>How many weeks of slots?</Text>
+              {[4, 8, 12, 26].map((weeks) => (
+                <TouchableOpacity
+                  key={weeks}
+                  style={styles.weeksOption}
+                  onPress={() => createWeeklySlots(weeks)}
+                >
+                  <Text style={styles.weeksOptionText}>{weeks} weeks</Text>
+                  <Text style={styles.weeksOptionSub}>~{weeks * 10} slots (Mon-Fri, 2/day)</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Add Client Modal */}
       <Modal visible={showAddClientModal} animationType="slide" transparent={true}>
@@ -893,9 +806,9 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             </View>
 
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalLabel}>Email *</Text>
+              <Text style={styles.inputLabel}>Email *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="client@email.com"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="email-address"
@@ -904,27 +817,27 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 onChangeText={(text) => setNewClient({ ...newClient, email: text })}
               />
 
-              <Text style={styles.modalLabel}>First Name *</Text>
+              <Text style={styles.inputLabel}>First Name *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="First name"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 value={newClient.firstName}
                 onChangeText={(text) => setNewClient({ ...newClient, firstName: text })}
               />
 
-              <Text style={styles.modalLabel}>Last Name *</Text>
+              <Text style={styles.inputLabel}>Last Name *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="Last name"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 value={newClient.lastName}
                 onChangeText={(text) => setNewClient({ ...newClient, lastName: text })}
               />
 
-              <Text style={styles.modalLabel}>Phone</Text>
+              <Text style={styles.inputLabel}>Phone</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="+351 ..."
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="phone-pad"
@@ -932,52 +845,54 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 onChangeText={(text) => setNewClient({ ...newClient, phone: text })}
               />
 
-              <Text style={styles.modalLabel}>Date of Birth</Text>
+              <Text style={styles.inputLabel}>Date of Birth</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="YYYY-MM-DD"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 value={newClient.dateOfBirth}
                 onChangeText={(text) => setNewClient({ ...newClient, dateOfBirth: text })}
               />
 
-              <Text style={styles.modalLabel}>Gender</Text>
-              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <Text style={styles.inputLabel}>Gender</Text>
+              <View style={styles.genderRow}>
                 {['male', 'female', 'other'].map((g) => (
                   <TouchableOpacity
                     key={g}
-                    style={[
-                      styles.genderButton,
-                      newClient.gender === g && styles.genderButtonActive,
-                    ]}
+                    style={[styles.genderButton, newClient.gender === g && styles.genderButtonActive]}
                     onPress={() => setNewClient({ ...newClient, gender: g })}
                   >
-                    <Text style={[
-                      styles.genderButtonText,
-                      newClient.gender === g && styles.genderButtonTextActive,
-                    ]}>
+                    <Text style={[styles.genderButtonText, newClient.gender === g && styles.genderButtonTextActive]}>
                       {g.charAt(0).toUpperCase() + g.slice(1)}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
 
-              <Text style={{ fontSize: 12, color: COLORS.TEXT_MUTED, marginBottom: 16 }}>
+              <Text style={styles.inputHint}>
                 A welcome email with login details will be sent to the client. They will be prompted to change their password on first login.
               </Text>
             </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.modalCreateButton, { margin: 20 }, addingClient && styles.buyButtonDisabled]}
-              onPress={handleAddClient}
-              disabled={addingClient}
-            >
-              {addingClient ? (
-                <ActivityIndicator color={COLORS.BG_DARK} />
-              ) : (
-                <Text style={styles.modalCreateButtonText}>Create Client Account</Text>
-              )}
-            </TouchableOpacity>
+            <View style={styles.modalFooter}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowAddClientModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalGoldButton, addingClient && styles.buttonDisabled]}
+                onPress={handleAddClient}
+                disabled={addingClient}
+              >
+                {addingClient ? (
+                  <ActivityIndicator color={COLORS.BG_DARK} />
+                ) : (
+                  <Text style={styles.modalGoldButtonText}>Create Client</Text>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -989,17 +904,17 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Adjust Credits</Text>
               <TouchableOpacity onPress={() => setShowAdjustCreditsModal(false)}>
-                <Text style={styles.closeButtonText}>{'\u2715'}</Text>
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
               {selectedClient && (
                 <>
-                  <Text style={styles.clientModalName}>
+                  <Text style={styles.modalClientName}>
                     {selectedClient.first_name} {selectedClient.last_name}
                   </Text>
-                  <Text style={styles.currentBalanceText}>
+                  <Text style={styles.modalClientBalance}>
                     Current Balance: {selectedClient.credit_balances?.balance || 0} credits
                   </Text>
                 </>
@@ -1008,7 +923,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
               <Text style={styles.inputLabel}>Credits to Add/Subtract *</Text>
               <Text style={styles.inputHint}>Use positive numbers to add, negative to subtract (e.g., -5)</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 10 or -5"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="numeric"
@@ -1025,10 +940,10 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalCreateButton}
+                style={styles.modalGoldButton}
                 onPress={handleAdjustCredits}
               >
-                <Text style={styles.modalCreateButtonText}>Adjust Credits</Text>
+                <Text style={styles.modalGoldButtonText}>Adjust Credits</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1042,39 +957,39 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Create Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowAddPackModal(false)}>
-                <Ionicons name="close" size={28} color={COLORS.TEXT_MUTED} />
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
               <Text style={styles.inputLabel}>Number of Credits *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 10"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={newPack.credits}
-                onChangeText={(text) => setNewPack({...newPack, credits: text})}
+                onChangeText={(text) => setNewPack({ ...newPack, credits: text })}
               />
 
               <Text style={styles.inputLabel}>Price ({'\u20AC'}) *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 50.00"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="decimal-pad"
                 value={newPack.price}
-                onChangeText={(text) => setNewPack({...newPack, price: text})}
+                onChangeText={(text) => setNewPack({ ...newPack, price: text })}
               />
 
               <Text style={styles.inputLabel}>Discount % (optional)</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 10"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={newPack.discount}
-                onChangeText={(text) => setNewPack({...newPack, discount: text})}
+                onChangeText={(text) => setNewPack({ ...newPack, discount: text })}
               />
             </View>
 
@@ -1086,14 +1001,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalCreateButton}
+                style={[styles.modalGoldButton, creating && styles.buttonDisabled]}
                 onPress={handleCreatePack}
                 disabled={creating}
               >
                 {creating ? (
                   <ActivityIndicator color={COLORS.BG_DARK} />
                 ) : (
-                  <Text style={styles.modalCreateButtonText}>Create Pack</Text>
+                  <Text style={styles.modalGoldButtonText}>Create Pack</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1108,39 +1023,39 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Edit Credit Pack</Text>
               <TouchableOpacity onPress={() => setShowEditPackModal(false)}>
-                <Text style={styles.closeButtonText}>{'\u2715'}</Text>
+                <Ionicons name="close" size={24} color={COLORS.TEXT_MUTED} />
               </TouchableOpacity>
             </View>
 
             <View style={styles.modalBody}>
               <Text style={styles.inputLabel}>Number of Credits *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 10"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={editPackForm.credits}
-                onChangeText={(text) => setEditPackForm({...editPackForm, credits: text})}
+                onChangeText={(text) => setEditPackForm({ ...editPackForm, credits: text })}
               />
 
               <Text style={styles.inputLabel}>Price ({'\u20AC'}) *</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 50"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="decimal-pad"
                 value={editPackForm.price}
-                onChangeText={(text) => setEditPackForm({...editPackForm, price: text})}
+                onChangeText={(text) => setEditPackForm({ ...editPackForm, price: text })}
               />
 
               <Text style={styles.inputLabel}>Discount %</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 placeholder="e.g., 10"
                 placeholderTextColor={COLORS.TEXT_MUTED}
                 keyboardType="number-pad"
                 value={editPackForm.discount}
-                onChangeText={(text) => setEditPackForm({...editPackForm, discount: text})}
+                onChangeText={(text) => setEditPackForm({ ...editPackForm, discount: text })}
               />
             </View>
 
@@ -1152,14 +1067,14 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalCreateButton}
+                style={[styles.modalGoldButton, creating && styles.buttonDisabled]}
                 onPress={handleUpdatePack}
                 disabled={creating}
               >
                 {creating ? (
                   <ActivityIndicator color={COLORS.BG_DARK} />
                 ) : (
-                  <Text style={styles.modalCreateButtonText}>Update Pack</Text>
+                  <Text style={styles.modalGoldButtonText}>Update Pack</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -1181,7 +1096,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalBody}>
               <Text style={styles.inputLabel}>Start Time</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 value={slotForm.startTime}
                 onChangeText={(text) => setSlotForm({ ...slotForm, startTime: text })}
                 placeholder="YYYY-MM-DD HH:MM"
@@ -1190,7 +1105,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 
               <Text style={styles.inputLabel}>End Time</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 value={slotForm.endTime}
                 onChangeText={(text) => setSlotForm({ ...slotForm, endTime: text })}
                 placeholder="YYYY-MM-DD HH:MM"
@@ -1199,7 +1114,7 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
 
               <Text style={styles.inputLabel}>Capacity</Text>
               <TextInput
-                style={styles.modalInput}
+                style={styles.input}
                 value={slotForm.capacity}
                 onChangeText={(text) => setSlotForm({ ...slotForm, capacity: text })}
                 placeholder="6"
@@ -1217,35 +1132,20 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation }) => {
             <View style={styles.modalFooter}>
               <TouchableOpacity
                 style={styles.modalCancelButton}
-                onPress={() => {
-                  setShowSlotModal(false);
-                  setSelectedSlot(null);
-                }}
+                onPress={() => { setShowSlotModal(false); setSelectedSlot(null); }}
               >
                 <Text style={styles.modalCancelButtonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={styles.modalCreateButton}
+                style={styles.modalGoldButton}
                 onPress={handleUpdateSlot}
               >
-                <Text style={styles.modalCreateButtonText}>Update Slot</Text>
+                <Text style={styles.modalGoldButtonText}>Update Slot</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
-      {/* Hamburger Menu */}
-      <HamburgerMenu
-        visible={menuVisible}
-        onClose={() => setMenuVisible(false)}
-        onLogout={async () => {
-          await auth.signOut();
-          navigation.navigate('Login');
-        }}
-        userRole="admin"
-        unreadCount={0}
-      />
     </SafeAreaView>
   );
 };
@@ -1261,29 +1161,42 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: COLORS.BG_DARK,
   },
-  headerContainer: {
+
+  // Header
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     backgroundColor: COLORS.BG_CARD,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.BORDER,
   },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: COLORS.TEXT_WHITE,
+  },
+  logoutText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.GOLD,
+  },
+
+  // Tab Bar
   tabBar: {
     backgroundColor: COLORS.BG_CARD,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.BORDER,
-    paddingHorizontal: 8,
     flexGrow: 0,
   },
+  tabBarContent: {
+    paddingHorizontal: 12,
+  },
   tab: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     marginRight: 4,
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
@@ -1292,7 +1205,7 @@ const styles = StyleSheet.create({
     borderBottomColor: COLORS.GOLD,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '500',
     color: COLORS.TEXT_MUTED,
   },
@@ -1300,105 +1213,20 @@ const styles = StyleSheet.create({
     color: COLORS.GOLD,
     fontWeight: '600',
   },
-  hamburgerIcon: {
-    width: 24,
-    height: 18,
-    justifyContent: 'space-between',
-  },
-  hamburgerLine: {
-    width: 24,
-    height: 3,
-    backgroundColor: COLORS.TEXT_WHITE,
-    borderRadius: 2,
-  },
-  headerTextContainer: {
-    flex: 1,
-    marginLeft: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
-  },
-  headerSubtitle: {
-    fontSize: 13,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 2,
-  },
-  dropdownMenu: {
-    backgroundColor: COLORS.BG_CARD,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  menuItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    gap: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  menuItemActive: {
-    backgroundColor: 'rgba(200, 169, 78, 0.1)',
-  },
-  menuItemText: {
-    fontSize: 16,
-    color: COLORS.TEXT_MUTED,
-    fontWeight: '500',
-  },
-  menuItemTextActive: {
-    color: COLORS.GOLD,
-    fontWeight: '600',
-  },
+
+  // Scroll
   scrollView: {
     flex: 1,
     paddingTop: 16,
   },
   scrollContent: {
-    maxWidth: 900,
+    maxWidth: 800,
     width: '100%',
     alignSelf: 'center',
+    paddingBottom: 32,
   },
-  actionBar: {
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: COLORS.BG_CARD,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  primaryButton: {
-    flexDirection: 'row',
-    backgroundColor: COLORS.GOLD,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: COLORS.BG_DARK,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  blockBookingsButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.GOLD,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    gap: 8,
-  },
-  blockBookingsButtonText: {
-    color: COLORS.BG_DARK,
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
-  },
+
+  // Sections
   section: {
     marginHorizontal: 16,
     marginBottom: 16,
@@ -1407,6 +1235,12 @@ const styles = StyleSheet.create({
     padding: 20,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
   sectionTitle: {
     fontSize: 18,
@@ -1419,13 +1253,188 @@ const styles = StyleSheet.create({
     color: COLORS.TEXT_MUTED,
     marginBottom: 16,
   },
+
+  // Buttons
+  goldButton: {
+    backgroundColor: COLORS.GOLD,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+  },
+  goldButtonText: {
+    color: COLORS.BG_DARK,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  goldButtonSmall: {
+    backgroundColor: COLORS.GOLD,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  goldButtonSmallText: {
+    color: COLORS.BG_DARK,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  outlineButtonGold: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
+    borderWidth: 1,
+    borderColor: COLORS.GOLD,
+  },
+  outlineButtonGoldText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.GOLD,
+  },
+  outlineButtonRed: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderWidth: 1,
+    borderColor: COLORS.RED,
+  },
+  outlineButtonRedText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.RED,
+  },
+  outlineButtonWhite: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  outlineButtonWhiteText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  dashedButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.BG_DARK,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: COLORS.BORDER,
+    borderStyle: 'dashed',
+    marginTop: 4,
+  },
+  dashedButtonText: {
+    fontSize: 15,
+    color: COLORS.GOLD,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    backgroundColor: '#4a4a4a',
+  },
+
+  // Today tab
+  timeSlotGroup: {
+    marginBottom: 16,
+  },
+  timeSlotHeader: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.GOLD,
+    marginBottom: 8,
+    paddingBottom: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  bookingCard: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: COLORS.BG_DARK,
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  bookingInfo: {
+    flex: 1,
+  },
+  bookingName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  bookingStatus: {
+    fontSize: 13,
+    color: COLORS.TEXT_MUTED,
+    marginTop: 2,
+  },
+  bookingActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  attendedButton: {
+    backgroundColor: COLORS.GREEN,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  attendedButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  noShowButton: {
+    backgroundColor: COLORS.RED,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 6,
+  },
+  noShowButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  statusAttended: {
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+  },
+  statusNoShow: {
+    backgroundColor: 'rgba(239, 68, 68, 0.15)',
+  },
+  statusBadgeText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.TEXT_MUTED,
+  },
+
+  // Empty state
+  emptyState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  emptyStateText: {
+    fontSize: 15,
+    color: COLORS.TEXT_MUTED,
+    marginTop: 12,
+  },
+
+  // Slot cards
   slotCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
@@ -1434,70 +1443,41 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   slotDate: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.TEXT_WHITE,
   },
   slotTime: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.TEXT_MUTED,
     marginTop: 2,
   },
   slotStats: {
     alignItems: 'flex-end',
-    marginRight: 8,
+    marginRight: 10,
   },
   slotBooked: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: 'bold',
     color: COLORS.GOLD,
   },
   slotLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: COLORS.TEXT_MUTED,
   },
   slotActions: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
-  slotActionButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: COLORS.BG_CARD,
-  },
-  slotActionButtonEdit: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(200, 169, 78, 0.1)',
-    borderWidth: 1,
-    borderColor: COLORS.GOLD,
-  },
-  slotActionButtonEditText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.GOLD,
-  },
-  slotActionButtonDelete: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderWidth: 1,
-    borderColor: COLORS.RED,
-  },
-  slotActionButtonDeleteText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.RED,
-  },
+
+  // Client cards
   clientCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 10,
+    padding: 14,
     marginBottom: 8,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
@@ -1506,64 +1486,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   clientName: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.TEXT_WHITE,
   },
   clientEmail: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.TEXT_MUTED,
     marginTop: 2,
   },
   clientCredits: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 6,
     gap: 4,
   },
   clientCreditsText: {
-    fontSize: 14,
+    fontSize: 13,
     color: COLORS.GOLD,
     fontWeight: '500',
   },
+  clientCreditsLow: {
+    color: COLORS.RED,
+    fontWeight: '600',
+  },
   clientActions: {
-    flexDirection: 'row',
-    gap: 8,
+    flexDirection: 'column',
+    gap: 6,
+    alignItems: 'flex-end',
   },
-  viewDetailsButton: {
-    backgroundColor: COLORS.BG_CARD,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  viewDetailsButtonText: {
-    fontSize: 14,
-    color: COLORS.TEXT_WHITE,
-    fontWeight: '600',
-  },
-  adjustButton: {
-    backgroundColor: 'rgba(200, 169, 78, 0.1)',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.GOLD,
-  },
-  adjustButtonText: {
-    fontSize: 14,
-    color: COLORS.GOLD,
-    fontWeight: '600',
-  },
+
+  // Pack cards
   packCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
   },
@@ -1571,12 +1532,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   packCredits: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: COLORS.TEXT_WHITE,
   },
   packPrice: {
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: 'bold',
     color: COLORS.GOLD,
     marginTop: 4,
@@ -1592,299 +1553,21 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   packPerCredit: {
-    fontSize: 14,
-    color: COLORS.TEXT_MUTED,
-  },
-  editPackButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(200, 169, 78, 0.1)',
-    borderWidth: 1,
-    borderColor: COLORS.GOLD,
-  },
-  editPackButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.GOLD,
-  },
-  addPackButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 2,
-    borderColor: COLORS.BORDER,
-    borderStyle: 'dashed',
-    gap: 8,
-  },
-  addPackText: {
-    fontSize: 16,
-    color: COLORS.GOLD,
-    fontWeight: '600',
-  },
-  // Overview Dashboard Styles
-  kpiGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    marginTop: 16,
-  },
-  kpiCard: {
-    flex: 1,
-    minWidth: '45%',
-    backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  kpiIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 12,
-  },
-  kpiValue: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
-    marginBottom: 4,
-  },
-  kpiValueSmall: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
-    marginBottom: 4,
-  },
-  kpiLabel: {
     fontSize: 13,
     color: COLORS.TEXT_MUTED,
-    textAlign: 'center',
   },
-  quickStatsContainer: {
-    backgroundColor: COLORS.BG_DARK,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  quickStatsTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_WHITE,
-    marginBottom: 12,
-  },
-  quickStatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  quickStatLabel: {
-    flex: 1,
-    fontSize: 14,
-    color: COLORS.TEXT_MUTED,
-    marginLeft: 12,
-  },
-  quickStatValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_WHITE,
-  },
-  emptyMetrics: {
-    paddingVertical: 60,
-    alignItems: 'center',
-  },
-  emptyMetricsText: {
-    fontSize: 16,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 12,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: COLORS.OVERLAY,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContent: {
-    backgroundColor: COLORS.BG_CARD,
-    borderRadius: 16,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '90%',
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_WHITE,
-  },
-  modalBody: {
-    padding: 20,
-  },
-  inputLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.TEXT_WHITE,
-    marginBottom: 8,
-    marginTop: 12,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 16,
-    backgroundColor: COLORS.BG_DARK,
-    color: COLORS.TEXT_WHITE,
-  },
-  warningText: {
-    fontSize: 13,
-    color: COLORS.GOLD,
-    backgroundColor: 'rgba(200, 169, 78, 0.1)',
-    padding: 12,
-    borderRadius: 8,
-    marginTop: 16,
-    borderWidth: 1,
-    borderColor: COLORS.GOLD_DIM,
-  },
-  modalButtonGroup: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 20,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 12,
-    padding: 20,
-    borderTopWidth: 1,
-    borderTopColor: COLORS.BORDER,
-  },
-  modalCancelButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-    alignItems: 'center',
-  },
-  modalCancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_MUTED,
-  },
-  modalCreateButton: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: COLORS.GOLD,
-    alignItems: 'center',
-  },
-  modalCreateButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.BG_DARK,
-  },
-  closeButtonText: {
-    fontSize: 28,
-    color: COLORS.TEXT_MUTED,
-    fontWeight: '300',
-  },
-  clientModalName: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: COLORS.TEXT_WHITE,
-    marginBottom: 8,
-  },
-  currentBalanceText: {
-    fontSize: 15,
-    color: COLORS.TEXT_MUTED,
-    marginBottom: 20,
-  },
-  inputHint: {
-    fontSize: 13,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 4,
-    marginBottom: 8,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 40,
-  },
-  emptyStateText: {
-    fontSize: 16,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 12,
-  },
-  attendanceCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: COLORS.BG_DARK,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: COLORS.BORDER,
-  },
-  attendanceInfo: {
-    flex: 1,
-  },
-  attendanceName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_WHITE,
-  },
-  attendanceTime: {
-    fontSize: 14,
-    color: COLORS.TEXT_MUTED,
-    marginTop: 4,
-  },
-  attendanceActions: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  attendedButton: {
-    backgroundColor: COLORS.GREEN,
-    padding: 10,
-    borderRadius: 8,
-  },
-  noShowButton: {
-    backgroundColor: COLORS.RED,
-    padding: 10,
-    borderRadius: 8,
-  },
+
+  // Settings
   settingCard: {
     backgroundColor: COLORS.BG_DARK,
     padding: 16,
-    borderRadius: 12,
-    marginBottom: 16,
+    borderRadius: 10,
+    marginBottom: 14,
     borderWidth: 1,
     borderColor: COLORS.BORDER,
   },
   settingLabel: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
     color: COLORS.TEXT_WHITE,
     marginBottom: 4,
@@ -1895,8 +1578,57 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     lineHeight: 18,
   },
-  buyButtonDisabled: {
-    backgroundColor: '#4a4a4a',
+
+  // Inputs
+  input: {
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 15,
+    backgroundColor: COLORS.BG_DARK,
+    color: COLORS.TEXT_WHITE,
+    marginBottom: 4,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  inputHint: {
+    fontSize: 12,
+    color: COLORS.TEXT_MUTED,
+    marginTop: 4,
+    marginBottom: 8,
+  },
+
+  // Weeks picker
+  weeksOption: {
+    backgroundColor: COLORS.BG_DARK,
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  weeksOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.TEXT_WHITE,
+  },
+  weeksOptionSub: {
+    fontSize: 13,
+    color: COLORS.TEXT_MUTED,
+    marginTop: 2,
+  },
+
+  // Gender buttons
+  genderRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
   },
   genderButton: {
     flex: 1,
@@ -1919,12 +1651,94 @@ const styles = StyleSheet.create({
     color: COLORS.GOLD,
     fontWeight: '600',
   },
-  modalLabel: {
-    fontSize: 14,
-    fontWeight: '500',
+
+  // Warning
+  warningText: {
+    fontSize: 13,
+    color: COLORS.GOLD,
+    backgroundColor: 'rgba(200, 169, 78, 0.1)',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: COLORS.GOLD_DIM,
+  },
+
+  // Modals
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: COLORS.OVERLAY,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: COLORS.BG_CARD,
+    borderRadius: 14,
+    width: '100%',
+    maxWidth: 500,
+    maxHeight: '90%',
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.BORDER,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: COLORS.TEXT_WHITE,
+  },
+  modalBody: {
+    padding: 20,
+  },
+  modalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.BORDER,
+  },
+  modalCancelButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: COLORS.BORDER,
+    alignItems: 'center',
+  },
+  modalCancelButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.TEXT_MUTED,
+  },
+  modalGoldButton: {
+    flex: 1,
+    padding: 14,
+    borderRadius: 8,
+    backgroundColor: COLORS.GOLD,
+    alignItems: 'center',
+  },
+  modalGoldButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.BG_DARK,
+  },
+  modalClientName: {
+    fontSize: 17,
+    fontWeight: '600',
     color: COLORS.TEXT_WHITE,
     marginBottom: 6,
-    marginTop: 8,
+  },
+  modalClientBalance: {
+    fontSize: 14,
+    color: COLORS.TEXT_MUTED,
+    marginBottom: 16,
   },
 });
 
