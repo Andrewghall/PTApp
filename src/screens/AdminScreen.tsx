@@ -806,6 +806,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
                   <Text style={styles.weeksOptionSub}>~{weeks * 10} slots (Mon-Fri, 2/day)</Text>
                 </TouchableOpacity>
               ))}
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowWeeksModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
