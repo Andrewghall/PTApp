@@ -502,15 +502,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
         throw new Error(data.error);
       }
 
-      const message = data?.emailSent
-        ? `Account created for ${newClient.firstName}! A welcome email has been sent to ${newClient.email} with their login details.`
-        : `Account created for ${newClient.firstName}!\n\nTemporary password: ${data?.tempPassword}\n\nPlease share this with the client securely.`;
+      const message = `Account created! An invite email has been sent to ${newClient.email}. They will receive a link to set their own password and log in.`;
 
       setShowAddClientModal(false);
       setNewClient({ email: '', firstName: '', lastName: '', phone: '', dateOfBirth: '', gender: '' });
       await loadAdminData();
 
-      showToast(message, 'success');
+      Alert.alert('Client Created', message);
     } catch (error: any) {
       const msg = error.message || 'Failed to create client';
       Alert.alert('Error Creating Client', msg);
