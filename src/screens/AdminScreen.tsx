@@ -502,7 +502,13 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
         throw new Error(data.error);
       }
 
-      const message = `Account created! An invite email has been sent to ${newClient.email}. They will receive a link to set their own password and log in.`;
+      let message: string;
+      if (data?.emailSent) {
+        message = `Account created! An invite email has been sent to ${newClient.email} with a link to set their password.`;
+      } else {
+        const errNote = data?.emailError ? `\n\nEmail error: ${data.emailError}` : '';
+        message = `Account created for ${newClient.firstName} but the welcome email failed to send. Please contact them manually.${errNote}`;
+      }
 
       setShowAddClientModal(false);
       setNewClient({ email: '', firstName: '', lastName: '', phone: '', dateOfBirth: '', gender: '' });
