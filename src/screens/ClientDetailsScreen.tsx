@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { db, supabase } from '../lib/supabase';
@@ -25,6 +26,7 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
   const [loading, setLoading] = useState(true);
   const [clientData, setClientData] = useState<any>(null);
   const [analytics, setAnalytics] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     loadClientAnalytics();
@@ -138,6 +140,34 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClient = () => {
+    const name = `${clientData?.first_name} ${clientData?.last_name}`;
+    Alert.alert(
+      'Delete Client',
+      `Are you sure you want to permanently delete ${name}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              const userId = clientData?.user_id;
+              if (!userId) throw new Error('User ID not found');
+              const { error } = await db.deleteClients([userId]);
+              if (error) throw new Error(error.message);
+              navigation.goBack();
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete client');
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading) {
@@ -344,6 +374,20 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
           ) : (
             <Text style={styles.emptyText}>No transactions yet</Text>
           )}
+        </View>
+
+        {/* Delete Client */}
+        <View style={{ paddingHorizontal: 16, paddingVertical: 24 }}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteClient}
+            disabled={deleting}
+          >
+            <Ionicons name="trash-outline" size={18} color="#fff" />
+            <Text style={styles.deleteButtonText}>
+              {deleting ? 'Deleting...' : 'Delete Client'}
+            </Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -627,6 +671,20 @@ const styles = StyleSheet.create({
     color: '#9ca3af',
     textAlign: 'center',
     paddingVertical: 20,
+  },
+  deleteButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#ef4444',
+    borderRadius: 10,
+    paddingVertical: 14,
+  },
+  deleteButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

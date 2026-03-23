@@ -77,6 +77,11 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
     setTimeout(() => setToast(null), 5000);
   };
 
+  // Client selection state
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedClientIds, setSelectedClientIds] = useState<Set<string>>(new Set());
+  const [deletingClients, setDeletingClients] = useState(false);
+
   // Add Client state
   const [showAddClientModal, setShowAddClientModal] = useState(false);
   const [addingClient, setAddingClient] = useState(false);
@@ -517,6 +522,40 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
     }
   };
 
+  const handleDeleteSelectedClients = () => {
+    const count = selectedClientIds.size;
+    if (count === 0) return;
+    Alert.alert(
+      'Delete Clients',
+      `Are you sure you want to permanently delete ${count} client${count > 1 ? 's' : ''}? This cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingClients(true);
+            try {
+              // Get user_ids for selected client_profile ids
+              const selectedClients = clients.filter(c => selectedClientIds.has(c.id));
+              const userIds = selectedClients.map(c => c.user_id).filter(Boolean);
+              const { data, error } = await db.deleteClients(userIds);
+              if (error) throw new Error(error.message);
+              setSelectedClientIds(new Set());
+              setSelectMode(false);
+              await loadAdminData();
+              Alert.alert('Done', `${data?.deleted?.length || count} client${count > 1 ? 's' : ''} deleted.`);
+            } catch (err: any) {
+              Alert.alert('Error', err.message || 'Failed to delete clients');
+            } finally {
+              setDeletingClients(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleLogout = async () => {
     await auth.signOut();
     if (onLogout) {
@@ -740,56 +779,110 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
           <View style={styles.section}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Clients ({clients.length})</Text>
-              <TouchableOpacity
-                style={styles.goldButtonSmall}
-                onPress={() => setShowAddClientModal(true)}
-              >
-                <Text style={styles.goldButtonSmallText}>Add Client</Text>
-              </TouchableOpacity>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {clients.length > 0 && (
+                  <TouchableOpacity
+                    style={[styles.goldButtonSmall, selectMode && { backgroundColor: COLORS.BG_CARD }]}
+                    onPress={() => {
+                      setSelectMode(!selectMode);
+                      setSelectedClientIds(new Set());
+                    }}
+                  >
+                    <Text style={[styles.goldButtonSmallText, selectMode && { color: COLORS.TEXT_MUTED }]}>
+                      {selectMode ? 'Cancel' : 'Select'}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                  style={styles.goldButtonSmall}
+                  onPress={() => setShowAddClientModal(true)}
+                >
+                  <Text style={styles.goldButtonSmallText}>Add Client</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+
+            {selectMode && selectedClientIds.size > 0 && (
+              <TouchableOpacity
+                style={[styles.goldButtonSmall, { backgroundColor: COLORS.RED, marginBottom: 12, alignSelf: 'flex-start' }]}
+                onPress={handleDeleteSelectedClients}
+                disabled={deletingClients}
+              >
+                <Text style={[styles.goldButtonSmallText, { color: '#fff' }]}>
+                  {deletingClients ? 'Deleting...' : `Delete Selected (${selectedClientIds.size})`}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {clients.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name="people-outline" size={48} color={COLORS.TEXT_MUTED} />
                 <Text style={styles.emptyStateText}>No clients yet</Text>
               </View>
             ) : (
-              clients.map((client) => (
-                <View key={client.id} style={styles.clientCard}>
-                  <View style={styles.clientInfo}>
-                    <Text style={styles.clientName}>
-                      {client.first_name} {client.last_name}
-                    </Text>
-                    <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
-                    <View style={styles.clientCredits}>
-                      <Ionicons
-                        name="wallet"
-                        size={14}
-                        color={(client.credit_balances?.balance || 0) <= 2 ? COLORS.RED : COLORS.GOLD}
-                      />
-                      <Text style={[
-                        styles.clientCreditsText,
-                        (client.credit_balances?.balance || 0) <= 2 && styles.clientCreditsLow,
-                      ]}>
-                        {client.credit_balances?.balance || 0} credits
+              clients.map((client) => {
+                const isSelected = selectedClientIds.has(client.id);
+                return (
+                  <TouchableOpacity
+                    key={client.id}
+                    activeOpacity={selectMode ? 0.7 : 1}
+                    onPress={selectMode ? () => {
+                      const next = new Set(selectedClientIds);
+                      if (isSelected) next.delete(client.id);
+                      else next.add(client.id);
+                      setSelectedClientIds(next);
+                    } : undefined}
+                    style={[styles.clientCard, isSelected && { borderColor: COLORS.RED, borderWidth: 1.5 }]}
+                  >
+                    {selectMode && (
+                      <View style={{
+                        width: 22, height: 22, borderRadius: 11,
+                        borderWidth: 2, borderColor: isSelected ? COLORS.RED : COLORS.TEXT_MUTED,
+                        backgroundColor: isSelected ? COLORS.RED : 'transparent',
+                        alignItems: 'center', justifyContent: 'center', marginRight: 10,
+                        alignSelf: 'center',
+                      }}>
+                        {isSelected && <Ionicons name="checkmark" size={13} color="#fff" />}
+                      </View>
+                    )}
+                    <View style={styles.clientInfo}>
+                      <Text style={styles.clientName}>
+                        {client.first_name} {client.last_name}
                       </Text>
+                      <Text style={styles.clientEmail}>{client.profiles?.email}</Text>
+                      <View style={styles.clientCredits}>
+                        <Ionicons
+                          name="wallet"
+                          size={14}
+                          color={(client.credit_balances?.balance || 0) <= 2 ? COLORS.RED : COLORS.GOLD}
+                        />
+                        <Text style={[
+                          styles.clientCreditsText,
+                          (client.credit_balances?.balance || 0) <= 2 && styles.clientCreditsLow,
+                        ]}>
+                          {client.credit_balances?.balance || 0} credits
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.clientActions}>
-                    <TouchableOpacity
-                      style={styles.outlineButtonWhite}
-                      onPress={() => navigation.navigate('ClientDetails', { clientId: client.id })}
-                    >
-                      <Text style={styles.outlineButtonWhiteText}>View Details</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.outlineButtonGold}
-                      onPress={() => adjustClientCredits(client)}
-                    >
-                      <Text style={styles.outlineButtonGoldText}>Adjust Credits</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              ))
+                    {!selectMode && (
+                      <View style={styles.clientActions}>
+                        <TouchableOpacity
+                          style={styles.outlineButtonWhite}
+                          onPress={() => navigation.navigate('ClientDetails', { clientId: client.id })}
+                        >
+                          <Text style={styles.outlineButtonWhiteText}>View Details</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.outlineButtonGold}
+                          onPress={() => adjustClientCredits(client)}
+                        >
+                          <Text style={styles.outlineButtonGoldText}>Adjust Credits</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })
             )}
           </View>
         )}

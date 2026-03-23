@@ -1211,6 +1211,25 @@ export const db = {
     return { data, error };
   },
 
+  // ── DELETE CLIENTS (Admin) ──
+  deleteClients: async (userIds: string[]) => {
+    const { data, error } = await supabase.functions.invoke('admin-delete-client', {
+      body: { userIds },
+    });
+    if (error) {
+      let message = error.message;
+      try {
+        const context = (error as any).context;
+        if (context?.json) {
+          const body = await context.json();
+          if (body?.error) message = body.error;
+        }
+      } catch (_) {}
+      return { data: null, error: { message } };
+    }
+    return { data, error };
+  },
+
   // ── TODAY'S ATTENDANCE (Admin) ──
   getTodayBookings: async () => {
     const today = new Date();
