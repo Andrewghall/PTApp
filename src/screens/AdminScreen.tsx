@@ -869,35 +869,21 @@ const AdminScreen: React.FC<AdminScreenProps> = ({ navigation, onLogout }) => {
                         {/* Bank account slot selector */}
                         <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
                           <TouchableOpacity
-                            style={[
-                              styles.bankSlotButton,
-                              { backgroundColor: client.payment_bank_slot === 1 ? '#2563eb' : 'transparent', borderColor: '#2563eb' },
-                            ]}
+                            style={[styles.bankSlotButton, { backgroundColor: client.payment_bank_slot === 1 ? '#2563eb' : '#1e3a6e', borderColor: '#2563eb' }]}
                             onPress={async () => {
                               const newSlot = client.payment_bank_slot === 1 ? null : 1;
                               await db.setClientBankSlot(client.id, newSlot);
                               setClients(prev => prev.map(c => c.id === client.id ? { ...c, payment_bank_slot: newSlot } : c));
                             }}
-                          >
-                            <Text style={[styles.bankSlotButtonText, { color: client.payment_bank_slot === 1 ? '#fff' : '#2563eb' }]}>
-                              Acct 1
-                            </Text>
-                          </TouchableOpacity>
+                          />
                           <TouchableOpacity
-                            style={[
-                              styles.bankSlotButton,
-                              { backgroundColor: client.payment_bank_slot === 2 ? '#16a34a' : 'transparent', borderColor: '#16a34a' },
-                            ]}
+                            style={[styles.bankSlotButton, { backgroundColor: client.payment_bank_slot === 2 ? '#16a34a' : '#14532d', borderColor: '#16a34a' }]}
                             onPress={async () => {
                               const newSlot = client.payment_bank_slot === 2 ? null : 2;
                               await db.setClientBankSlot(client.id, newSlot);
                               setClients(prev => prev.map(c => c.id === client.id ? { ...c, payment_bank_slot: newSlot } : c));
                             }}
-                          >
-                            <Text style={[styles.bankSlotButtonText, { color: client.payment_bank_slot === 2 ? '#fff' : '#16a34a' }]}>
-                              Acct 2
-                            </Text>
-                          </TouchableOpacity>
+                          />
                         </View>
                         <TouchableOpacity
                           style={styles.outlineButtonWhite}
@@ -1913,14 +1899,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   bankSlotButton: {
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 6,
-    borderWidth: 1.5,
-  },
-  bankSlotButtonText: {
-    fontSize: 12,
-    fontWeight: '700',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
   },
 
   // Pack cards

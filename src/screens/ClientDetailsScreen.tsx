@@ -231,10 +231,10 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
           </TouchableOpacity>
 
           {/* Bank account routing */}
-          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 12, marginTop: 12 }}>
             <TouchableOpacity
               style={[styles.bankSlotBtn, {
-                backgroundColor: clientData?.payment_bank_slot === 1 ? '#2563eb' : 'transparent',
+                backgroundColor: clientData?.payment_bank_slot === 1 ? '#2563eb' : '#1e3a6e',
                 borderColor: '#2563eb',
               }]}
               onPress={async () => {
@@ -242,14 +242,10 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
                 await db.setClientBankSlot(clientData.id, newSlot as any);
                 setClientData((prev: any) => ({ ...prev, payment_bank_slot: newSlot }));
               }}
-            >
-              <Text style={[styles.bankSlotBtnText, { color: clientData?.payment_bank_slot === 1 ? '#fff' : '#2563eb' }]}>
-                Account 1
-              </Text>
-            </TouchableOpacity>
+            />
             <TouchableOpacity
               style={[styles.bankSlotBtn, {
-                backgroundColor: clientData?.payment_bank_slot === 2 ? '#16a34a' : 'transparent',
+                backgroundColor: clientData?.payment_bank_slot === 2 ? '#16a34a' : '#14532d',
                 borderColor: '#16a34a',
               }]}
               onPress={async () => {
@@ -257,11 +253,7 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
                 await db.setClientBankSlot(clientData.id, newSlot as any);
                 setClientData((prev: any) => ({ ...prev, payment_bank_slot: newSlot }));
               }}
-            >
-              <Text style={[styles.bankSlotBtnText, { color: clientData?.payment_bank_slot === 2 ? '#fff' : '#16a34a' }]}>
-                Account 2
-              </Text>
-            </TouchableOpacity>
+            />
           </View>
           <Text style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>
             {clientData?.payment_bank_slot
@@ -726,14 +718,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   bankSlotBtn: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 8,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     borderWidth: 2,
-  },
-  bankSlotBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
   },
 });
 
