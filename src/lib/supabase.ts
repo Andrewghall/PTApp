@@ -1211,6 +1211,14 @@ export const db = {
     return { data, error };
   },
 
+  // ── SET CLIENT BANK SLOT (Admin) ──
+  setClientBankSlot: async (clientId: string, slot: 1 | 2 | null) => {
+    return supabase
+      .from('client_profiles')
+      .update({ payment_bank_slot: slot })
+      .eq('id', clientId);
+  },
+
   // ── DELETE CLIENTS (Admin) ──
   deleteClients: async (userIds: string[]) => {
     const { data, error } = await supabase.functions.invoke('admin-delete-client', {

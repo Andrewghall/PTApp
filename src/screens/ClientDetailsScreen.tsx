@@ -229,6 +229,45 @@ const ClientDetailsScreen: React.FC<ClientDetailsScreenProps> = ({ navigation, r
             <Ionicons name="chatbubbles" size={20} color="white" />
             <Text style={styles.messageButtonText}>Send Message</Text>
           </TouchableOpacity>
+
+          {/* Bank account routing */}
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
+            <TouchableOpacity
+              style={[styles.bankSlotBtn, {
+                backgroundColor: clientData?.payment_bank_slot === 1 ? '#2563eb' : 'transparent',
+                borderColor: '#2563eb',
+              }]}
+              onPress={async () => {
+                const newSlot = clientData?.payment_bank_slot === 1 ? null : 1;
+                await db.setClientBankSlot(clientData.id, newSlot as any);
+                setClientData((prev: any) => ({ ...prev, payment_bank_slot: newSlot }));
+              }}
+            >
+              <Text style={[styles.bankSlotBtnText, { color: clientData?.payment_bank_slot === 1 ? '#fff' : '#2563eb' }]}>
+                Account 1
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.bankSlotBtn, {
+                backgroundColor: clientData?.payment_bank_slot === 2 ? '#16a34a' : 'transparent',
+                borderColor: '#16a34a',
+              }]}
+              onPress={async () => {
+                const newSlot = clientData?.payment_bank_slot === 2 ? null : 2;
+                await db.setClientBankSlot(clientData.id, newSlot as any);
+                setClientData((prev: any) => ({ ...prev, payment_bank_slot: newSlot }));
+              }}
+            >
+              <Text style={[styles.bankSlotBtnText, { color: clientData?.payment_bank_slot === 2 ? '#fff' : '#16a34a' }]}>
+                Account 2
+              </Text>
+            </TouchableOpacity>
+          </View>
+          <Text style={{ color: '#9ca3af', fontSize: 11, marginTop: 4 }}>
+            {clientData?.payment_bank_slot
+              ? `Payments → Account ${clientData.payment_bank_slot}`
+              : 'Payments alternating (no account assigned)'}
+          </Text>
         </View>
 
         {/* Key Metrics Grid */}
@@ -685,6 +724,16 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  bankSlotBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 2,
+  },
+  bankSlotBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
 

@@ -94,22 +94,32 @@ serve(async (req) => {
         stripe_payment_intent_id: paymentIntentId,
       });
 
-    // 4. Increment payment count for bank account alternation
-    const { data: countSetting } = await supabase
-      .from('app_settings')
-      .select('value')
-      .eq('key', 'stripe_payment_count')
+    // 4. Determine payout bank slot: use client's assigned slot, else alternate globally
+    const { data: clientProfile } = await supabase
+      .from('client_profiles')
+      .select('payment_bank_slot')
+      .eq('id', clientId)
       .single();
 
-    const newCount = (parseInt(String(countSetting?.value || '0')) + 1);
-    await supabase
-      .from('app_settings')
-      .update({ value: JSON.stringify(newCount) })
-      .eq('key', 'stripe_payment_count');
+    let targetSlot: 1 | 2 | null = clientProfile?.payment_bank_slot || null;
 
-    // 5. Alternate payout destination between the two configured bank accounts
+    if (!targetSlot) {
+      // Fall back to global alternation
+      const { data: countSetting } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'stripe_payment_count')
+        .single();
+      const newCount = (parseInt(String(countSetting?.value || '0')) + 1);
+      await supabase
+        .from('app_settings')
+        .update({ value: JSON.stringify(newCount) })
+        .eq('key', 'stripe_payment_count');
+      targetSlot = newCount % 2 === 1 ? 1 : 2;
+    }
+
+    // 5. Route payout to the determined bank account
     try {
-      // Read bank account IDs from app_settings (set via the app), fall back to env vars
       const { data: bankSetting1 } = await supabase
         .from('app_settings')
         .select('value')
@@ -128,19 +138,17 @@ serve(async (req) => {
         ? String(bankSetting2.value).replace(/"/g, '')
         : Deno.env.get('BANK_ACCOUNT_ID_2');
 
-      if (bankAccount1 && bankAccount2) {
-        const targetBankId = newCount % 2 === 1 ? bankAccount1 : bankAccount2;
-        const slotLabel = newCount % 2 === 1 ? '1' : '2';
+      const targetBankId = targetSlot === 1 ? bankAccount1 : bankAccount2;
 
-        // Set the target bank account as default for EUR so next payout goes there
+      if (targetBankId) {
         const account = await stripe.accounts.retrieve();
         await stripe.accounts.updateExternalAccount(account.id, targetBankId, {
           default_for_currency: true,
         });
-        console.log(`Payment #${newCount}: set bank account ${slotLabel} (${targetBankId}) as default payout`);
+        console.log(`Payment for client ${clientId}: routed to bank account ${targetSlot} (${targetBankId})`);
       }
     } catch (bankErr: any) {
-      console.error('Bank alternation error (non-fatal):', bankErr.message);
+      console.error('Bank routing error (non-fatal):', bankErr.message);
     }
 
     // 6. Create notification for client
